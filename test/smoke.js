@@ -492,7 +492,18 @@ console.log('\na /regex/ word that could freeze the tab');
   const slow = ['/(a+)+$/', '/(a|aa)*b/', '/(\\w|\\d)+$/', '/(\\w+\\s?)*$/', '/(.*a){12}/', '/.*.*.*zq/', '/\\d+\\d*x/', '/.*o.*e.*zq/'];
   const missed = slow.filter(t => !S.slowPattern(body(t)));
   ok('nested repeats, repeated choices, and repeats that crowd each other are seen for what they are', !missed.length, missed.join(' '));
-  const fine = ['/give\\s?away/i', '/\\bcrypto\\b/i', '/crypto.*scam/', '/(?:crypto|nft)s?/i', '/\\d{3}-\\d{4}/', '/free\\s+money/', '/a+b+/', '/[^\\]]+x/'];
+  /* Each of these ran for seconds, or was killed after ten, over a post of
+   * 1,000 a's, and the guard let them all through: bounded repeats were not
+   * counted, and a group repeated around a ? was not a repeat inside a
+   * repeat. */
+  const bounded = ['/a{0,999}a{0,999}a{0,999}a{0,999}b/', '/(a?){40}a{40}b/', '/a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?b/',
+    '/.*a{0,10}.*zq/', '/.{0,10}a.{0,10}a.{0,10}a.{0,10}a.{0,10}zq/', '/.*a.{0,9}a.{0,9}a.{0,9}zq/', '/.{0,99}a.{0,99}b.{0,99}zq/'];
+  const letThrough = bounded.filter(t => !S.slowPattern(body(t)));
+  ok('bounded repeats count too: side by side, around a ? in a repeated group, or too many in all', !letThrough.length, letThrough.join(' '));
+  const restored = S.fromBackup({ keywords: { enabled: true, terms: bounded.slice(0, 2) } }).keywords.terms;
+  ok('…and a backup brings them back as plain words', JSON.stringify(restored) === JSON.stringify(bounded.slice(0, 2).map(body)), JSON.stringify(restored));
+  const fine = ['/give\\s?away/i', '/\\bcrypto\\b/i', '/crypto.*scam/', '/(?:crypto|nft)s?/i', '/\\d{3}-\\d{4}/', '/free\\s+money/', '/a+b+/', '/[^\\]]+x/',
+    '/colou?r/', '/\\d{1,2}\\/\\d{1,2}\\/\\d{2,4}/', '/(?:https?:\\/\\/)?\\w+/', '/\\d{1,3}(,\\d{3})*/', '/(trump|biden)s?/i'];
   const refused = fine.filter(t => S.slowPattern(body(t)));
   ok('ordinary patterns are not', !refused.length, refused.join(' '));
   ok('one of them is kept as the plain word between its slashes, the rest as typed',
@@ -520,6 +531,33 @@ console.log('\na /regex/ word that could freeze the tab');
   ok('…while a plain word still reads all of it', $$('u-video').getAttribute('data-bfx-hidden-by') === 'keyword');
   await timed(['/zebra/']);
   ok('…and the pattern doesn\'t, past its first thousand characters', !$$('u-video').hasAttribute('data-bfx-hidden-by'));
+}
+
+/* The shape check is no proof, so a pattern that still takes long over one
+ * post is read as a plain word for the rest of the page: one post's wait, not
+ * one per post. The clock here makes every test of a pattern look slow. */
+{
+  const w = boot(PAGE);
+  const S = w.BFX_STORE;
+  const words = () => S.merge({ presets: Object.fromEntries(BFX_PRESETS.map(r => [r.id, false])),
+    keywords: { enabled: true, terms: ['/photo|giveaway/i'] } });
+  const now = w.Date.now;
+  let slow = 0;
+  w.Date.now = function () { return now.call(w.Date) + (slow ? (slow += 200) : 0); };
+  slow = 1;
+  w.BFX_ENGINE.apply(words());
+  await frame();
+  const hid = ['u-ok', 'u-kw'].filter(id => w.document.getElementById(id).hasAttribute('data-bfx-hidden-by'));
+  ok('a pattern that takes too long over one post is not tried on the posts after it', !hid.length, 'still hid ' + hid.join(', '));
+  slow = 0;
+  w.BFX_ENGINE.apply(words());
+  await frame();
+  ok('…nor after a settings change, on that page', !w.document.getElementById('u-kw').hasAttribute('data-bfx-hidden-by'));
+  const fresh = boot(PAGE);
+  fresh.BFX_ENGINE.apply(words());
+  await frame();
+  ok('…while on a page where it is quick it matches as usual', ['u-ok', 'u-kw'].every(id =>
+    fresh.document.getElementById(id).getAttribute('data-bfx-hidden-by') === 'keyword'));
 }
 
 /* The background page's side of it: each sheet goes in as a user style, the

@@ -192,12 +192,20 @@
 
   /* A /regex/ body that a backtracking engine can take seconds or hours over
    * on one post, with the tab frozen while it runs, since a scan can't be
-   * interrupted: a repeat around something that repeats or branches
-   * ((a+)+, (a|aa)*, (\w+\s?)*, (.*a){9}), an open-ended repeat straight
-   * after another that can match the same characters (.*.*, \d+\d*, with
-   * only optional bits between), or more than two open-ended repeats in all
-   * (.*a.*b.*c). Read token by token; a group's prefix ("?:", "?<name>")
-   * reads as plain characters, which changes nothing here. */
+   * interrupted:
+   *   - a group repeated more than once around something that varies or
+   *     branches: (a+)+, (a?){40}, (a|aa)*, (\w+\s?)*, (.*a){9};
+   *   - a repeat of any size straight after another that can match the same
+   *     characters, with only optional bits between: .*.*, \d+\d*, a?a?,
+   *     a{0,999}a{0,999};
+   *   - too many ways in all to share a post out among its repeats: each
+   *     counts its choices, one that is open-ended or takes more than WIDE
+   *     extra counts sixteen, and the product may not pass WAYS. That allows
+   *     .*a.*b but not .*a.*b.*c, .{0,99}a.{0,99}b.{0,99}c or
+   *     .*a.{0,9}b.{0,9}c.{0,9}d, each of which took over a second.
+   * Read token by token; a group's prefix ("?:", "?<name>") is skipped. */
+  var WIDE = 10;
+  var WAYS = 1000;
   var CLASSES = { d: /\d/, w: /\w/, s: /\s/, D: /\D/, W: /\W/, S: /\S/ };
   var APART = ['\\D\\d', '\\S\\s', '\\W\\w', '\\d\\s', '\\s\\w', '\\W\\d'];
   /* Whether two atoms can match no character in common. An atom is 'L' and
@@ -210,13 +218,23 @@
     return APART.indexOf([a, b].sort().join('')) !== -1;
   }
 
+  function meetsAny(kinds, kind) {
+    for (var i = 0; i < kinds.length; i++) {
+      if (!apart(kinds[i], kind)) return true;
+    }
+    return false;
+  }
+
   function slowPattern(body) {
     var REPEAT = /^\{(\d+)(,(\d*))?\}/;
-    var groups = [{ rep: false, alt: false, before: null }];
+    var PREFIX = /^\(\?([:=!]|<[=!]|<[^>]*>)/;
+    /* first: what a group's first item can match, which tells (,\d{3})*
+     * from what came before it; '(' when that could be anything. */
+    var groups = [{ vary: false, alt: false, before: [], first: null }];
     var atom = null;        // what a quantifier here would apply to
-    var before = null;      // the item before it, if that repeats open-endedly
-    var open = null;        // the same for this item, once its quantifier is read
-    var opens = 0;
+    var before = [];        // what the repeats that meet this item can match
+    var open = [];          // the same for the item after it, once its quantifier is read
+    var ways = 1;
     for (var i = 0; i < body.length; i++) {
       var c = body[i];
       var top = groups[groups.length - 1];
@@ -225,40 +243,49 @@
         if (q) i += q[0].length - 1;
         if (body[i + 1] === '?') i++;   // lazy: the same work
         if (!atom) continue;
-        var max = c === '*' || c === '+' ? Infinity : c === '?' ? 1 : q[2] === undefined ? +q[1] : q[3] === '' ? Infinity : +q[3];
-        if (max > 1) {
-          if (atom.group && (atom.group.rep || atom.group.alt)) return true;
-          top.rep = true;
+        var min = c === '+' ? 1 : c === '*' || c === '?' ? 0 : +q[1];
+        var max = c === '*' || c === '+' ? Infinity : c === '?' ? 1 : q[2] === undefined ? min : q[3] === '' ? Infinity : +q[3];
+        if (max > 1 && atom.group && (atom.group.vary || atom.group.alt)) return true;
+        if (max > min) {
+          top.vary = true;
+          ways *= max - min > WIDE ? 16 : max - min + 1;
+          if (ways > WAYS) return true;
         }
-        if (max === Infinity) {
-          if ((before && !apart(before, atom.kind)) || ++opens > 2) return true;
-          open = atom.kind;
-        } else if (max <= 1) {
-          open = before;   // optional: what came before still meets what follows
+        /* A group that is only optional repeats nothing: what it holds was
+         * judged on its own. */
+        var repeats = max > min && !(atom.group && max <= 1);
+        if (repeats && meetsAny(before, atom.kind)) return true;
+        open = repeats ? [atom.kind] : [];
+        if (min === 0) {
+          open = open.concat(before);   // optional: what came before still meets what follows
+          if (atom.first) top.first = '(';
         }
         atom = null;
         continue;
       }
       if (c === '(') {
-        groups.push({ rep: false, alt: false, before: open });
+        var prefix = PREFIX.exec(body.slice(i));
+        if (prefix) i += prefix[0].length - 1;
+        groups.push({ vary: false, alt: false, before: open, first: null });
         atom = null;
-        before = open = null;
+        before = open = [];
         continue;
       }
       if (c === '|') {
         top.alt = true;
         atom = null;
-        before = open = null;
+        before = open = [];
         continue;
       }
       if (c === ')' && groups.length > 1) {
         var done = groups.pop();
         var outer = groups[groups.length - 1];
-        outer.rep = outer.rep || done.rep;
+        outer.vary = outer.vary || done.vary;
         outer.alt = outer.alt || done.alt;
-        atom = { group: done, kind: '(' };
+        atom = { group: done, kind: done.alt || !done.first ? '(' : done.first, first: !outer.first };
+        if (!outer.first) outer.first = atom.kind;
         before = done.before;
-        open = null;
+        open = [];
         continue;
       }
       var kind = c === '.' || c === '[' ? c : 'L' + c.toLowerCase();
@@ -270,9 +297,10 @@
       } else if (c === '[') {
         for (i++; i < body.length && body[i] !== ']'; i++) if (body[i] === '\\') i++;
       }
-      atom = { group: null, kind: kind };
+      atom = { group: null, kind: kind, first: !top.first };
+      if (!top.first) top.first = kind;
       before = open;
-      open = null;
+      open = [];
     }
     return false;
   }

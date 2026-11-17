@@ -613,6 +613,12 @@
    * all of it. */
   var REGEX_TEXT_MAX = 1000;
 
+  /* STORE.slowPattern reads a pattern's shape, which is no proof. One that
+   * still takes this long over a single post is a plain word for the rest of
+   * the page's life, so it costs one post's wait, not one on every post. */
+  var REGEX_MS = 100;
+  var tooSlow = {};        // the source of each pattern that took that long
+
   /* The term that matched, or null. */
   function matchKeyword(unit, ctx) {
     var raw = ctx.text();
@@ -621,7 +627,18 @@
     var head = raw.length > REGEX_TEXT_MAX ? raw.slice(0, REGEX_TEXT_MAX) : raw;
     for (var i = 0; i < keywords.length; i++) {
       var term = keywords[i];
-      if (term.re ? term.re.test(head) : text.indexOf(term.text) !== -1) return term.source;
+      var hit;
+      if (term.re) {
+        var started = Date.now();
+        hit = term.re.test(head);
+        if (Date.now() - started > REGEX_MS) {
+          tooSlow[term.source] = true;
+          keywords[i] = { text: term.source.toLowerCase(), source: term.source };
+        }
+      } else {
+        hit = text.indexOf(term.text) !== -1;
+      }
+      if (hit) return term.source;
     }
     return null;
   }
@@ -635,7 +652,7 @@
       var t = String(raw).trim();
       if (!t) return null;
       var m = /^\/(.+)\/([gimsuy]*)$/.exec(t);
-      if (m && !STORE.slowPattern(m[1])) {
+      if (m && !STORE.slowPattern(m[1]) && !tooSlow[t]) {
         try {
           // No g or y: both make test() stateful between posts.
           return { re: new RegExp(m[1], m[2].replace(/[gy]/g, '')), source: t };
