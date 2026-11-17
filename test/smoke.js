@@ -790,6 +790,42 @@ console.log('\nthe popup');
     $p('tallyWord').textContent);
 }
 
+/* A page that never stops changing (a video's progress, a live chat) was
+ * scanned every frame, each scan with document-wide queries. */
+console.log('\na page that keeps changing');
+{
+  const w = boot(fs.readFileSync(path.join(__dirname, 'fixtures/feed.html'), 'utf8'));
+  const doc = w.document;
+  w.BFX_ENGINE.apply(w.BFX_STORE.merge({ keywords: { enabled: true, terms: ['crypto'] } }));
+  await frame();
+  await new Promise(r => setTimeout(r, 200));
+  const units = w.BFX_ENGINE.site.units;
+  const all = w.Document.prototype.querySelectorAll;
+  let scans = 0;
+  w.Document.prototype.querySelectorAll = function (sel) { if (sel === units) scans++; return all.call(this, sel); };
+  const ticker = doc.body.appendChild(doc.createElement('span'));
+  const late = doc.getElementById('u-organic').cloneNode(true);
+  late.id = 'late-kw';
+  late.setAttribute('aria-posinset', '99');
+  for (let i = 0; i < 40; i++) {
+    ticker.textContent = String(i);
+    if (i === 20) doc.getElementById('u-organic').after(late), late.append(' buy crypto');
+    await new Promise(r => setTimeout(r, 16));
+  }
+  await new Promise(r => setTimeout(r, 150));
+  w.Document.prototype.querySelectorAll = all;
+  ok(`changes every frame for ${40 * 16} ms are looked at a few times, not every frame: ${scans} scans`, scans <= 15, scans + ' scans');
+  ok('…and a post that came meanwhile is still judged', late.getAttribute('data-bfx-hidden-by') === 'keyword', 'got ' + late.getAttribute('data-bfx-hidden-by'));
+  await new Promise(r => setTimeout(r, 200));
+  const quiet = late.cloneNode(true);
+  quiet.id = 'quiet-kw';
+  quiet.setAttribute('aria-posinset', '100');
+  late.after(quiet);
+  await frame();
+  ok('once the page is quiet again, a new post is judged on the next frame', quiet.getAttribute('data-bfx-hidden-by') === 'keyword',
+    'got ' + quiet.getAttribute('data-bfx-hidden-by'));
+}
+
 /* ------------------------------------------------------- late labels -- */
 console.log('\nlate labels');
 BFX_ENGINE.apply(BFX_STORE.merge(null));
@@ -1332,8 +1368,8 @@ console.log('\nx.com as of October 2026 (test/fixtures/x.html)');
   doc.getElementById('cell-wtf-more').after(head, rows);
   later.BFX_ENGINE.apply(later.BFX_STORE.merge(null));
   for (let i = 0; i < 45; i++) {
-    doc.body.appendChild(doc.createElement('i'));
-    await new Promise(r => setTimeout(r, 25));
+    later.BFX_ENGINE.scan();
+    await new Promise(r => later.requestAnimationFrame(() => setTimeout(r, 0)));
   }
   later.BFX_ENGINE.apply(later.BFX_STORE.merge({ sites: { x: { presets: { reposts: true } } } }));
   await frame();

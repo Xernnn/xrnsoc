@@ -763,7 +763,34 @@
       else if (r.type === 'characterData') { if (r.target.parentElement) dirty.add(r.target.parentElement); }
       else dirty.add(r.target);
     }
-    schedule();
+    soon();
+  }
+
+  /* A page that never stops changing (a video's progress, a live chat) was
+   * scanned every frame, each scan with document-wide queries. After BUSY
+   * scans each followed by a change within QUIET_MS, its changes wait until
+   * SETTLE_MS after the last scan. A page that pauses for longer still has
+   * its changes looked at on the next frame, and a settings change or a new
+   * page never waits. */
+  var QUIET_MS = 40;
+  var SETTLE_MS = 100;
+  var BUSY = 3;
+  var lastScan = -Infinity;
+  var busy = 0;
+  var held = 0;
+
+  function soon() {
+    if (pending || held) return;
+    var now = performance.now();
+    if (now - lastScan > QUIET_MS) busy = 0;
+    if (busy < BUSY) {
+      schedule();
+      return;
+    }
+    held = setTimeout(function () {
+      held = 0;
+      schedule();
+    }, Math.max(0, lastScan + SETTLE_MS - now));
   }
 
   /* A feed renders thousands of changes a frame, most of them inside a
@@ -806,6 +833,8 @@
 
   function scan() {
     pending = false;
+    lastScan = performance.now();
+    busy++;
     if (!state || !state.enabled) {
       dirty.clear();
       relabelled.clear();
