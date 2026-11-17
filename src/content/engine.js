@@ -134,6 +134,7 @@
    * !important no rule of the site's outranks. The price is a round trip:
    * they land a moment after the page's own sheet. */
   var injected = [];       // the css of each picked rule the background applied
+  var maybe = [];          // sent, but the answer never came: it may be in or not
   var wanted = [];         // what the last apply() asked for
   var sending = false;     // a change is on its way there
 
@@ -161,20 +162,30 @@
 
   /* One change at a time, each the difference between what is applied and
    * what is wanted by then. One that fails is tried again with the next
-   * change of settings or page. */
+   * change of settings or page. Its sheets may have gone in all the same,
+   * so they are named as `again`: the background takes a copy out before
+   * putting one in, and takes one out that is no longer wanted. Every other
+   * sheet costs one call. */
   function sendPicked() {
     var add = wanted.filter(function (css) { return injected.indexOf(css) === -1; });
-    var remove = injected.filter(function (css) { return wanted.indexOf(css) === -1; });
+    var remove = injected.concat(maybe).filter(function (css, i, all) {
+      return wanted.indexOf(css) === -1 && all.indexOf(css) === i;
+    });
     if (!add.length && !remove.length) return;
+    var again = add.filter(function (css) { return maybe.indexOf(css) !== -1; });
     sending = true;
     var done = function (ok) {
       sending = false;
-      if (!ok) return;
+      if (!ok) {
+        maybe = maybe.concat(add.filter(function (css) { return maybe.indexOf(css) === -1; }));
+        return;
+      }
+      maybe = maybe.filter(function (css) { return add.indexOf(css) === -1 && remove.indexOf(css) === -1; });
       injected = injected.filter(function (css) { return remove.indexOf(css) === -1; }).concat(add);
       sendPicked();
     };
     try {
-      chrome.runtime.sendMessage({ type: 'bfx:css', add: add, remove: remove }, function (res) {
+      chrome.runtime.sendMessage({ type: 'bfx:css', add: add, remove: remove, again: again }, function (res) {
         void chrome.runtime.lastError;   // the background page was not reached
         done(!!(res && res.ok));
       });

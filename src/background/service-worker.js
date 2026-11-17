@@ -63,8 +63,11 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     }));
   };
   /* Chrome stacks a sheet inserted twice, and one removal then leaves a copy:
-   * a sheet sent again (its answer lost on the way back) first comes out. */
+   * a sheet sent again (its answer lost on the way back, which the tab says
+   * in `again`) first comes out. The rest go straight in, one call each. */
+  var again = Array.isArray(msg.again) ? msg.again.map(String) : [];
   var add = function (sheet) {
+    if (again.indexOf(sheet.css) === -1) return ext.scripting.insertCSS(sheet);
     return ext.scripting.removeCSS(sheet).then(function () { return ext.scripting.insertCSS(sheet); });
   };
   var remove = function (sheet) {

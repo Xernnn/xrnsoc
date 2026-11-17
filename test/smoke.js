@@ -691,17 +691,45 @@ console.log('\nthe background page');
   ok('in Chrome a sheet goes into the very document that sent it, as a user style, before the old one comes out',
     !!chromeTab && chromeTab.ok && first.every(([, d]) => d.origin === 'USER' &&
       JSON.stringify(d.target) === '{"tabId":7,"documentIds":["doc-1"]}') &&
-    steps(first) === 'remove a{display:none !important}, insert a{display:none !important}, remove b{display:none !important}',
+    steps(first) === 'insert a{display:none !important}, remove b{display:none !important}',
     JSON.stringify(first));
-  ok('…and a copy of it already there comes out first, so a sheet sent twice is in once', steps(first).startsWith('remove a'));
+  /* Taking each sheet out before putting it in cost two calls a picked rule
+   * on every page load; only one the tab may already have needs it. */
+  await ask(Object.assign({ type: 'bfx:css', again: css.add }, css), { tab: { id: 7 }, frameId: 0, documentId: 'doc-1' });
+  const resent = calls.splice(0);
+  ok('…and a sheet sent again, whose answer was lost, comes out first, so it is in once',
+    steps(resent) === 'remove a{display:none !important}, insert a{display:none !important}, remove b{display:none !important}', steps(resent));
   const firefoxTab = await ask(Object.assign({ type: 'bfx:css' }, css), { tab: { id: 7 }, frameId: 0 });
   const next = calls.splice(0);
-  ok('Firefox names no document: then it is the frame that sent it', !!firefoxTab && firefoxTab.ok && next.length === 3 &&
+  ok('Firefox names no document: then it is the frame that sent it', !!firefoxTab && firefoxTab.ok && next.length === 2 &&
     next.every(([, d]) => JSON.stringify(d.target) === '{"tabId":7,"frameIds":[0]}'), JSON.stringify(next));
   const fromPopup = await ask(Object.assign({ type: 'bfx:css' }, css), { id: 'xrnsocial', url: 'chrome-extension://x/src/popup/popup.html' });
   ok('a message from anywhere but a tab injects nothing', fromPopup === null && calls.length === 0, JSON.stringify(calls));
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
   ok('the manifest asks for the scripting permission it needs', manifest.permissions.includes('scripting'));
+  /* The tab's side: it names the sheets whose answer was lost. */
+  {
+    const w = boot(PAGE);
+    const sent = [];
+    let lose = true;
+    const send = w.chrome.runtime.sendMessage;
+    w.chrome.runtime.sendMessage = (msg, cb) => {
+      sent.push(JSON.parse(JSON.stringify(msg)));
+      if (lose) { lose = false; setTimeout(() => cb(undefined), 0); } else send(msg, cb);
+    };
+    const rules = (...ids) => w.BFX_STORE.merge({ sites: { facebook: { custom: ids.map(id => ({ id, selector: '#' + id, scope: 'all', enabled: true })) } } });
+    const sheet = id => '#' + id + ':not(#bfx-z){display:none !important}';
+    w.BFX_ENGINE.apply(rules('one', 'two'));
+    await frame();
+    ok('a page load sends its picked sheets once each, none to take out first',
+      sent.length === 1 && sent[0].add.length === 2 && !(sent[0].again || []).length, JSON.stringify(sent));
+    w.BFX_ENGINE.apply(rules('one'));
+    await frame();
+    const last = sent[sent.length - 1];
+    ok('after a lost answer, a sheet still wanted is sent as one that may be in, and one no longer wanted comes out',
+      sent.length === 2 && last.add.join() === sheet('one') && (last.again || []).join() === sheet('one') && last.remove.join() === sheet('two'),
+      JSON.stringify(last));
+  }
   /* It wrote back what it read, which undid a change made in between. */
   onInstalled({ reason: 'update' });
   await frame();
