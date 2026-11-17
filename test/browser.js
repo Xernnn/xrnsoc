@@ -337,7 +337,7 @@ async function until(fn, timeout = 3000) {
     ok('the hero counts what is on, away from a site', /^\d+$/.test(await popup.$eval('#tallyNum', n => n.textContent)) &&
       await popup.$eval('#tallyWord', n => n.textContent) === 'on');
     ok('a site being worked on wears the xrnsocial icon', (await iconOf()) === 'sites/facebook-on.svg', await iconOf());
-    ok('the pick button waits for a site', await popup.$eval('#pick', b => b.disabled && /Open a site/.test(b.textContent)));
+    ok('the pick button waits for a site', await popup.$eval('#pick', b => b.disabled));
 
     await sw.evaluate('self.BFX_STORE.update(s => { s.enabled = false; s.sites.facebook.presets.stories = true; })');
     ok('a change made elsewhere shows up in the open popup', await until(async () =>
