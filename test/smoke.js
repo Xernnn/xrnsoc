@@ -707,6 +707,11 @@ console.log('\nthe background page');
   ok('a message from anywhere but a tab injects nothing', fromPopup === null && calls.length === 0, JSON.stringify(calls));
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
   ok('the manifest asks for the scripting permission it needs', manifest.permissions.includes('scripting'));
+  /* Every tab the extension reads or acts on is a supported site, which the
+   * host permissions cover; activeTab only widened what a click on the icon
+   * granted on any other site. */
+  ok('…and for nothing it does not use', JSON.stringify(manifest.permissions.slice().sort()) === '["scripting","storage"]',
+    JSON.stringify(manifest.permissions));
   /* The tab's side: it names the sheets whose answer was lost. */
   {
     const w = boot(PAGE);
