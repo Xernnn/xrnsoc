@@ -394,7 +394,7 @@
     var s = data && (data.app === APP || OLD_APPS.indexOf(data.app) !== -1) ? data.settings : data;
     if (!s || typeof s !== 'object' || Array.isArray(s) ||
         !('sites' in s || 'presets' in s || 'custom' in s || 'keywords' in s)) {
-      throw new Error('This file does not contain ' + APP + ' settings.');
+      throw new Error('Not a backup');
     }
     var out = {};
     if (typeof s.enabled === 'boolean') out.enabled = s.enabled;

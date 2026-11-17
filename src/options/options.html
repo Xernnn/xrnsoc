@@ -11,19 +11,17 @@
       <img class="logo" src="../../icons/icon128.png" alt="" width="36" height="36" />
       <div>
         <h1>Back up &amp; restore</h1>
-        <p class="dim">Right now: <span id="current">loading…</span></p>
+        <p class="dim"><span id="current">loading…</span></p>
       </div>
     </header>
 
     <section class="card">
       <h2>Back up</h2>
-      <p class="dim">Saves all your settings to a file on this computer.</p>
       <button id="export" class="primary">Download backup</button>
     </section>
 
     <section class="card">
       <h2>Restore</h2>
-      <p class="dim">Loads a backup file. It replaces your current settings.</p>
       <input type="file" id="file" accept=".json,application/json" />
       <p id="preview" class="dim"></p>
       <button id="restore" class="primary" disabled>Restore this backup</button>

@@ -931,7 +931,7 @@ const restored = BFX_STORE.fromBackup(JSON.parse(JSON.stringify(BFX_STORE.toBack
 ok('a backup restores to the same settings', JSON.stringify(restored) === JSON.stringify(mine));
 let threw = null;
 try { BFX_STORE.fromBackup({ hello: 'world' }); } catch (e) { threw = e.message; }
-ok('a file that is not a backup is refused', /does not contain xrnsocial settings/.test(threw || ''), threw);
+ok('a file that is not a backup is refused', threw === 'Not a backup', threw);
 const cleaned = BFX_STORE.fromBackup({
   presets: { stories: 'yes', feed: true },
   custom: [{ selector: 'div}body{color:red' }, { selector: 'a[href^="/x"]', scope: 'weird' }, null],

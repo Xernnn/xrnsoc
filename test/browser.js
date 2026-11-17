@@ -484,8 +484,8 @@ async function until(fn, timeout = 3000) {
     const input = await options.$('#file');
     await input.uploadFile(backupFile);
     ok('a chosen file is previewed before anything changes', await until(async () =>
-      /This backup has/.test(await options.$eval('#preview', n => n.textContent))));
-    ok('the invalid picked rule is called out', /1 picked rule will be skipped/.test(
+      /picked rule/.test(await options.$eval('#preview', n => n.textContent))));
+    ok('the invalid picked rule is called out', / · 1 skipped$/.test(
       await options.$eval('#preview', n => n.textContent)));
     await options.click('#restore');
     const restored = await (async () => {

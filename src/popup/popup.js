@@ -38,8 +38,6 @@ var el = {
   pickedPip: document.getElementById('pickedPip')
 };
 
-var KW_HINT = el.kwHint.textContent;
-
 var GROUP_ICONS = {
   'Ads': 'M3 11v2a1 1 0 0 0 1 1h3l9 5V5L7 10H4a1 1 0 0 0-1 1zM19 9a4 4 0 0 1 0 6',
   'Feed': 'M4 6h16M4 12h16M4 18h10',
@@ -153,10 +151,6 @@ function clickTogglesSwitch(row, input) {
   });
 }
 
-function plural(n, word) {
-  return n + ' ' + word + (n === 1 ? '' : 's');
-}
-
 function setPip(pip, n) {
   pip.textContent = n ? String(n) : '';
   pip.hidden = !n;
@@ -174,19 +168,16 @@ function healthChip(stat, picked) {
   var chip;
   if (stat.offPage) {
     chip = node('span', 'count zero', 'other page');
-    chip.title = 'Set to a different page, so it does nothing here.';
   } else if (broken.length && !stat.count) {
     chip = node('span', 'count bad', 'broken');
-    chip.title = 'The browser rejects this rule, so it can never match:\n' + broken.join('\n');
   } else if (!stat.count) {
     if (!picked) return null;
     chip = node('span', 'count zero', 'none here');
-    chip.title = 'Nothing on this page matches. If you can still see it, the site changed: pick it again.';
   } else {
     chip = node('span', 'count' + (broken.length ? ' warn' : ''), String(stat.count));
-    chip.title = plural(stat.count, 'element') + ' matched on this page.' +
-      (broken.length ? '\nSome of its selectors are rejected by the browser:\n' + broken.join('\n') : '');
   }
+  /* The selectors the browser rejects, on hover. */
+  if (broken.length) chip.title = broken.join('\n');
   return chip;
 }
 
@@ -414,7 +405,6 @@ function buildSites() {
     img.alt = '';
     img.width = 72;
     img.height = 72;
-    here.title = 'The site of this tab';
     name.appendChild(here);
     name.appendChild(node('span', null, p.name));
     name.appendChild(off);
@@ -455,8 +445,8 @@ function addWords(text) {
   var plain = added.filter(function (t, i) { return t !== typed[i]; });
   if (plain.length) {
     clearTimeout(addWords.hintTimer);
-    el.kwHint.textContent = 'That pattern could freeze the page, so it was added as a plain word: ' + plain.join(', ');
-    addWords.hintTimer = setTimeout(function () { el.kwHint.textContent = KW_HINT; }, 8000);
+    el.kwHint.textContent = 'Added as a plain word: ' + plain.join(', ');
+    addWords.hintTimer = setTimeout(function () { el.kwHint.textContent = ''; }, 8000);
   }
   mutate(function (s) {
     var terms = s.keywords.terms || [];
@@ -501,10 +491,7 @@ function renderCustom() {
   setPip(el.pickedPip, mine.custom.length);
 
   if (!mine.custom.length) {
-    var empty = node('div', 'empty');
-    empty.appendChild(node('b', null, 'Nothing picked yet'));
-    empty.appendChild(node('span', null, 'Use “Hide something” on ' + pack().name + '.'));
-    el.custom.appendChild(empty);
+    el.custom.appendChild(node('div', 'empty', 'Nothing picked'));
     return;
   }
 
@@ -675,7 +662,7 @@ el.backup.addEventListener('click', function () {
 });
 
 el.reset.addEventListener('click', function () {
-  if (!confirm('Delete every rule on every site and go back to the defaults?')) return;
+  if (!confirm('Reset every site to its defaults?')) return;
   mutate(function () { return store.merge(null); });
 });
 
@@ -714,8 +701,6 @@ chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     tab = t;
   } else {
     el.pick.disabled = true;
-    el.pick.title = 'Open a supported site to pick something on it';
-    el.pickLabel.textContent = 'Open a site first';
   }
   ready.tab = true;
   start();
