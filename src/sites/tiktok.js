@@ -24,29 +24,25 @@
       group: 'Ads',
       on: true,
       label: 'Coins and CapCut',
-      desc: 'TikTok\'s own promotions: the coins offer in the top bar and the CapCut link on videos.',
       css: ['[data-e2e="top-right-action-bar-get-coin"]', '[data-e2e="capcut-tag"]']
     },
     {
       id: 'counts',
       group: 'Videos',
       label: 'Counts',
-      desc: 'Hides the numbers under the side buttons, not the buttons.',
       css: ['[data-e2e="like-count"]', '[data-e2e="comment-count"]', '[data-e2e="favorite-count"]', '[data-e2e="share-count"]']
     },
     {
       id: 'music',
       group: 'Videos',
       label: 'Sound links',
-      desc: 'The "original sound" link under each video.',
       css: ['[data-e2e="video-music"]']
     },
-    SITES.common.noAutoplay('Videos', 'Videos stay paused until you click one. For You stops playing by itself as you scroll.'),
+    SITES.common.noAutoplay('Videos'),
     {
       id: 'navExtras',
       group: 'Menu',
       label: 'LIVE and dramas',
-      desc: 'Those two entries in the left menu.',
       css: ['[data-e2e="nav-live"]', '[data-e2e="nav-short-drama"]']
     },
     SITES.common.blackWhite(),

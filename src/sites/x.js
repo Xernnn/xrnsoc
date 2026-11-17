@@ -50,7 +50,6 @@
       group: 'Ads',
       on: true,
       label: 'Promoted posts',
-      desc: 'Ads in the timeline, in replies, in search and on profiles, and promoted accounts.',
       css: [
         CELL + ':has([data-testid="top-impression-pixel"])',
         CELL + ':has(a[href*="twclid="])',
@@ -64,7 +63,6 @@
       group: 'Ads',
       on: true,
       label: 'Promoted trends',
-      desc: '"Promoted by …" entries in the trends list.',
       css: ['[data-testid="trend"]:has(path[d^="' + PROMOTED_ICON + '"])']
     },
     {
@@ -72,7 +70,6 @@
       group: 'Ads',
       on: true,
       label: 'Premium offers',
-      desc: 'The "Subscribe to Premium" card, the Premium menu item and upgrade prompts.',
       css: [
         '[data-testid="sidebarColumn"] aside:has(a[href^="/i/premium_sign_up"])',
         'header a[href^="/i/premium_sign_up"]',
@@ -87,7 +84,6 @@
       group: 'Feed',
       on: true,
       label: 'Who to follow',
-      desc: 'Account suggestions in the timeline, under posts and in the right column.',
       css: ['[data-testid="sidebarColumn"] aside:has([data-testid="UserCell"])'],
       js: { kind: 'whoToFollow' }
     },
@@ -95,21 +91,18 @@
       id: 'reposts',
       group: 'Feed',
       label: 'Reposts',
-      desc: 'Posts that someone you follow reposted. Quotes stay.',
       js: { kind: 'repost' }
     },
     {
       id: 'videoPosts',
       group: 'Feed',
       label: 'All videos',
-      desc: 'Every post with a video in it — the whole post, not just the player.',
       css: [CELL + ':has(' + POST + ' [data-testid="videoPlayer"])']
     },
     {
       id: 'verifiedReplies',
       group: 'Feed',
       label: 'Verified replies',
-      desc: 'Under a post you opened, replies from accounts with a checkmark — most are paid. The post and the thread above it stay.',
       js: { kind: 'verifiedReplies' }
     },
     {
@@ -117,7 +110,6 @@
       group: 'Feed',
       label: 'Open on Following',
       behavior: true,
-      desc: 'Switches Home from the "For you" picks to the people you follow, each time you arrive. Click "For you" to go back for the visit.'
     },
 
     /* --------------------------------------------------------- posts ---- */
@@ -125,59 +117,51 @@
       id: 'postActions',
       group: 'Posts',
       label: 'Action bar',
-      desc: 'The row of buttons under every post.',
       css: [POST + ' [role="group"]:has([data-testid="like"], [data-testid="unlike"])']
     },
     {
       id: 'counts',
       group: 'Posts',
       label: 'Counts',
-      desc: 'Hides the numbers without hiding the buttons.',
       css: [POST + ' [role="group"] [data-testid="app-text-transition-container"]']
     },
     {
       id: 'media',
       group: 'Posts',
       label: 'Images & video',
-      desc: 'Keeps the text, drops pictures, videos and link cards.',
       css: [POST + ' [data-testid="tweetPhoto"]', POST + ' [data-testid="videoPlayer"]', POST + ' [data-testid="card.wrapper"]']
     },
-    SITES.common.noAutoplay('Posts', 'Videos in the timeline stay paused while you scroll past. Click one and it plays as normal.'),
+    SITES.common.noAutoplay('Posts'),
 
     /* ------------------------------------------------------ sidebars ---- */
     {
       id: 'rightSidebar',
       group: 'Sidebars',
       label: 'Right column',
-      desc: 'Search, Premium, news, trends, who to follow — all of it.',
       css: ['[data-testid="sidebarColumn"]']
     },
     {
       id: 'trends',
       group: 'Sidebars',
       label: 'What\'s happening',
-      desc: 'The trends list in the right column.',
       css: ['[data-testid="sidebarColumn"] section:has([data-testid="trend"])']
     },
     {
       id: 'news',
       group: 'Sidebars',
       label: 'Today\'s News',
-      desc: 'The news stories in the right column.',
       css: ['[data-testid="sidebarColumn"] div:has(> [data-testid="news_sidebar"])']
     },
     {
       id: 'sidebarSearch',
       group: 'Sidebars',
       label: 'Search',
-      desc: 'Explore still has its own.',
       css: ['[data-testid="sidebarColumn"] form[role="search"]']
     },
     {
       id: 'navExtras',
       group: 'Sidebars',
       label: 'Menu extras',
-      desc: 'Grok, Premium, Creator Studio, History, Communities, Jobs, Lists, Business and Monetization in the left menu and the More menu. Home, Explore, Notifications, Messages and Profile stay.',
       css: navLinks(['/i/grok', '/i/premium_sign_up', '/i/jf/creators/studio', '/i/history', '/jobs', '/i/verified-orgs-signup', '/i/monetization', '/i/spaces/start'])
         .concat(navEnds(['/communities', '/lists']))
     },
@@ -187,7 +171,6 @@
       id: 'grok',
       group: 'Floating',
       label: 'Grok',
-      desc: 'The Grok button on every post, the Grok bubble, its menu item and the image button in the post box.',
       css: [
         'header a[href="/i/grok"]',
         '[data-testid="GrokDrawer"]',
@@ -200,28 +183,24 @@
       id: 'chatDrawer',
       group: 'Floating',
       label: 'Chat drawer',
-      desc: 'The chat bar in the bottom corner. Messages in the menu still work.',
       css: ['[data-testid="chat-drawer-root"]']
     },
     {
       id: 'newPostsPill',
       group: 'Floating',
       label: 'New posts bubble',
-      desc: 'The bubble of avatars that offers fresh posts at the top of Home.',
       css: ['button:has(> div > [data-testid="pillLabel"])', '[data-testid="pillLabel"]']
     },
     {
       id: 'composer',
       group: 'Floating',
       label: 'Post box',
-      desc: 'The "What\'s happening?" box. The Post button in the menu still opens one.'
     },
     {
       id: 'badges',
       group: 'Floating',
       on: true,
       label: 'Unread badges',
-      desc: 'The counts and dots on the menu, and in the tab title.',
       css: ['header nav a div[aria-label]'],
       js: { kind: 'badges' }
     },

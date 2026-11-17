@@ -297,8 +297,6 @@ function flipGroup(group, on) {
 
 function buildRule(rule, list) {
   var row = node('div', 'rule');
-  /* The longer explanation is there on hover, not in the way. */
-  if (rule.desc) row.title = rule.desc;
   var chip = node('span');
   var sw = makeSwitch(false, function (on) {
     mutateSite(function (m) { m.presets[rule.id] = on; });

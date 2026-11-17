@@ -33,7 +33,6 @@
       group: 'Ads',
       on: true,
       label: 'Banner ads',
-      desc: 'The partner banners at the top of the home page, search, the feed and Latest Updates.',
       css: [
         /* The box around the ad too, or its margin stays behind. */
         'div:has(> div > a > img[src^="/temp/"])',
@@ -47,7 +46,6 @@
       group: 'Ads',
       on: true,
       label: 'Advertise link',
-      desc: 'The link for advertisers in the side menu.',
       css: ['#section-link-_advertise']
     },
 
@@ -56,7 +54,6 @@
       id: 'popular',
       group: 'Home',
       label: 'Popular titles',
-      desc: 'The big carousel at the top of the home page.',
       css: ['.md-content > .relative:has(> div > .swiper .banner-bg)']
     },
     {
@@ -89,7 +86,6 @@
       id: 'commentCounts',
       group: 'Lists',
       label: 'Comment counts',
-      desc: 'The comment number beside each chapter.',
       css: ['button.comment-container']
     },
 

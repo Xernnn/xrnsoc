@@ -98,7 +98,6 @@
         id: 'grayscale',
         group: 'Effects',
         label: 'Black & white',
-        desc: 'The whole page in greyscale — pictures, videos, avatars, everything — and it stays grey when you hover.',
         style: 'html { filter: grayscale(1) !important; }'
       };
     },
@@ -110,7 +109,6 @@
         id: 'blurFeed',
         group: 'Effects',
         label: 'Blur posts',
-        desc: 'Stops passive scrolling dead. You have to choose to read something.',
         style: post + ':not([data-bfx-note]) { filter: blur(5px); transition: filter .15s ease; }' +
           post + ':hover { filter: none; }'
       };
@@ -118,12 +116,11 @@
 
     /* No selector: the engine pauses any video that starts without a click
      * or key press just before it. */
-    noAutoplay: function (group, desc) {
+    noAutoplay: function (group) {
       return {
         id: 'noAutoplay',
         group: group,
         label: 'Stop autoplay',
-        desc: desc || 'Videos stay paused while you scroll past. Click one and it plays as normal.',
         behavior: true
       };
     }

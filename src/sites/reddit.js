@@ -35,7 +35,6 @@
       group: 'Ads',
       on: true,
       label: 'Promoted posts',
-      desc: 'Ads between posts in every feed: home, popular, communities, search.',
       css: [
         'shreddit-ad-post',
         'shreddit-ad-post + hr',
@@ -48,7 +47,6 @@
       group: 'Ads',
       on: true,
       label: 'Sidebar ads',
-      desc: 'The ad cards down the right column, and Reddit\'s own promotion slot there.',
       css: [
         'shreddit-sidebar-ad',
         'shreddit-async-loader[bundlename="sidebar_ad"]',
@@ -60,7 +58,6 @@
       group: 'Ads',
       on: true,
       label: 'Comment ads',
-      desc: 'The ad under a post and the ad slots Reddit threads between comments.',
       css: ['shreddit-comments-page-ad', 'shreddit-comment-tree-ad']
     },
 
@@ -70,7 +67,6 @@
       group: 'Feed',
       on: true,
       label: 'Recommended posts',
-      desc: 'Posts from communities you have not joined, mixed into Home. Popular, All and community pages are left alone.',
       js: { kind: 'recommended' }
     },
     {
@@ -78,7 +74,6 @@
       group: 'Feed',
       on: true,
       label: 'Community suggestions',
-      desc: '"Related communities" in the right column and community suggestions attached to posts.',
       css: [
         'faceplate-partial[name^="RelatedCommunityRecommendation"]',
         'faceplate-loader[name^="RelatedCommunityRecommendation"]',
@@ -89,7 +84,6 @@
       id: 'videoPosts',
       group: 'Feed',
       label: 'All videos',
-      desc: 'Every post with a video in it — the whole post, not just the player.',
       css: [
         'shreddit-feed > article:has(shreddit-player)',
         'shreddit-feed > article:has(> shreddit-post[post-type="video"])'
@@ -99,7 +93,6 @@
       id: 'nsfw',
       group: 'Feed',
       label: 'NSFW posts',
-      desc: 'Posts marked not safe for work, instead of Reddit\'s blurred cover.',
       css: ['shreddit-feed > article:has(> shreddit-post[nsfw])']
     },
 
@@ -108,14 +101,12 @@
       id: 'postActions',
       group: 'Posts',
       label: 'Action bar',
-      desc: 'The row under every post in a feed.',
       shadow: [{ host: 'shreddit-post', css: 'rpl-action-bar { display: none !important; }' }]
     },
     {
       id: 'counts',
       group: 'Posts',
       label: 'Counts',
-      desc: 'Hides the numbers on posts and comments without hiding the buttons.',
       shadow: [
         { host: 'shreddit-post', css: 'rpl-action-bar faceplate-number { display: none !important; }' },
         { host: 'shreddit-comment-action-row', css: 'faceplate-number { display: none !important; }' }
@@ -125,15 +116,13 @@
       id: 'comments',
       group: 'Posts',
       label: 'Comments',
-      desc: 'Comments and the comment box on a post\'s page.',
       css: ['shreddit-comment-tree', 'comment-composer-host', 'section[aria-label="Comments"]']
     },
-    SITES.common.noAutoplay('Posts', 'Videos in the feed stay paused while you scroll past. Click one and it plays as normal.'),
+    SITES.common.noAutoplay('Posts'),
     {
       id: 'media',
       group: 'Posts',
       label: 'Images & video',
-      desc: 'Keeps the titles and text, drops the pictures.',
       css: ['shreddit-post > [slot="post-media-container"]', 'shreddit-post > [slot="thumbnail"]']
     },
 
@@ -142,28 +131,24 @@
       id: 'leftSidebar',
       group: 'Sidebars',
       label: 'Left',
-      desc: 'Home, Popular, your communities, custom feeds, games and resources.',
       css: ['flex-left-nav-container', '#left-sidebar-container']
     },
     {
       id: 'rightSidebar',
       group: 'Sidebars',
       label: 'Right',
-      desc: 'Recent posts, sidebar ads, and a community\'s about box and rules.',
       css: ['#right-sidebar-container']
     },
     {
       id: 'recentPosts',
       group: 'Sidebars',
       label: 'Recent posts',
-      desc: 'The list of posts you looked at, down the right column.',
       css: ['recent-posts', 'faceplate-loader[name^="RecentPosts"]']
     },
     {
       id: 'games',
       group: 'Sidebars',
       label: 'Games',
-      desc: 'The games section of the left menu and the games badge in the top bar.',
       css: [
         'faceplate-expandable-section-helper:has(summary[aria-controls="games_section"])',
         'games-section-badge-wrapper',
@@ -188,14 +173,12 @@
       id: 'chat',
       group: 'Top bar',
       label: 'Chat',
-      desc: 'The chat button and the chat window.',
       css: ['reddit-chat-header-button', 'reddit-chat-host']
     },
     {
       id: 'advertise',
       group: 'Top bar',
       label: 'Advertise',
-      desc: 'Reddit\'s pitch to advertisers, in the top bar and the left menu.',
       css: ['advertise-button', 'a#advertise-button', 'a[href^="https://ads.reddit.com"]']
     },
     {
@@ -203,7 +186,6 @@
       group: 'Top bar',
       on: true,
       label: 'Red unread badges',
-      desc: 'The counts on chat and notifications, and in the tab title.',
       css: ['dynamic-badge'],
       js: { kind: 'badges' }
     },
