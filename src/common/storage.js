@@ -104,30 +104,63 @@
     };
   }
 
-  function get() {
-    return new Promise(function (resolve) {
+  function failure() {
+    var error = chrome.runtime && chrome.runtime.lastError;
+    return error ? new Error(error.message || String(error)) : null;
+  }
+
+  /* A read that fails reads as the defaults; read(true) refuses instead, so
+   * a write is never built on settings that were not there. */
+  function read(strict) {
+    return new Promise(function (resolve, reject) {
       chrome.storage.local.get(KEY, function (res) {
-        resolve(merge(res && res[KEY]));
+        var error = failure();
+        if (error && strict) reject(error);
+        else resolve(merge(res && res[KEY]));
       });
     });
   }
 
+  function get() {
+    return read(false);
+  }
+
+  /* Rejects when storage refuses the write (over quota, for one), so
+   * nothing claims a state that was never stored. */
   function set(state) {
-    return new Promise(function (resolve) {
+    return new Promise(function (resolve, reject) {
       var payload = {};
       payload[KEY] = state;
       chrome.storage.local.set(payload, function () {
-        resolve(state);
+        var error = failure();
+        if (error) reject(error);
+        else resolve(state);
       });
     });
   }
 
-  /* Read-modify-write. fn may mutate the state or return a new one. */
+  /* Read-modify-write, one at a time. Two that overlapped were built from
+   * the same read, and the later one undid the earlier: two switches
+   * flipped in a row, or the picker saving while the shortcut paused. In
+   * one page they wait in one queue; the extension's own pages and its
+   * worker also share a lock. A content script takes none: a lock there
+   * would be the site's, which could hold on to it. fn may mutate the state
+   * or return a new one. */
+  var queue = Promise.resolve();
+  var locks = typeof navigator !== 'undefined' && navigator.locks && typeof location !== 'undefined' &&
+    /^(chrome|moz)-extension:$/.test(location.protocol) ? navigator.locks : null;
+
   function update(fn) {
-    return get().then(function (state) {
-      var next = fn(state) || state;
-      return set(next);
+    var write = function () {
+      return read(true).then(function (state) {
+        return set(fn(state) || state);
+      });
+    };
+    var run = queue.then(function () {
+      return locks ? locks.request(KEY, write) : write();
     });
+    queue = run.catch(function () {});   // a write that failed holds up no other
+    return run;
   }
 
   function onChange(cb) {

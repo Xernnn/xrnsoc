@@ -618,6 +618,8 @@
     }).then(function () {
       toast('Hidden “' + rule.label + '” — undo from the xrnsocial popup');
       if (onDone) onDone(rule);
+    }, function () {
+      toast('Not saved');
     });
   }
 

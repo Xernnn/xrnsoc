@@ -40,7 +40,9 @@ chrome.commands.onCommand.addListener(function (command) {
     store.update(function (s) {
       s.enabled = !s.enabled;
       return s;
-    }).then(paintBadge);
+    }).then(paintBadge, function () {
+      store.get().then(paintBadge);   // not saved: the badge keeps showing what is
+    });
   }
 });
 
@@ -80,10 +82,10 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
 
 store.onChange(paintBadge);
 
+/* Settings go through merge() wherever they are read, so nothing needs
+ * writing back here, and a write here could undo one made meanwhile. */
 chrome.runtime.onInstalled.addListener(function () {
-  store.get().then(function (state) {
-    return store.set(state).then(function () { paintBadge(state); });
-  });
+  store.get().then(paintBadge);
 });
 
 chrome.runtime.onStartup.addListener(function () {

@@ -103,12 +103,15 @@ el.file.addEventListener('change', function () {
 el.restore.addEventListener('click', function () {
   if (!pending) return;
   if (!confirm('Replace all your current ' + store.APP + ' settings with this backup?')) return;
-  store.set(pending).then(function () {
+  var restoring = pending;
+  store.update(function () { return restoring; }).then(function () {
     pending = null;
     el.restore.disabled = true;
     el.file.value = '';
     el.preview.textContent = '';
     message('Restored. Open tabs have already updated.', 'ok');
+  }, function (e) {
+    message('Not restored: ' + e.message, 'bad');
   });
 });
 

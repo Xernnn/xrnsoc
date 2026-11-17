@@ -71,12 +71,22 @@ function own() {
 
 /* Every write is a read-modify-write against storage, never a save of this
  * popup's copy: the keyboard shortcut or another window may have changed
- * settings since the popup opened. */
+ * settings since the popup opened. One that storage refuses puts the
+ * switches back to what is stored, and the hero says so. */
+var notSaved = false;
+
 function mutate(fn) {
   return store.update(fn).then(function (next) {
     state = next;
+    notSaved = false;
     render();
     refreshStats();
+  }, function () {
+    notSaved = true;
+    return store.get().then(function (s) {
+      state = s;
+      render();
+    });
   });
 }
 
@@ -227,7 +237,9 @@ function renderHero() {
   var on = countOn();
   var num = '';
   var word;
-  if (!state.enabled) {
+  if (notSaved) {
+    word = 'Not saved';
+  } else if (!state.enabled) {
     word = 'Paused';
   } else if (!mine.enabled) {
     word = siteId === tabSite ? 'Off here' : 'Off';

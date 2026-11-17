@@ -651,10 +651,12 @@ console.log('\nthe background page');
 {
   const calls = [];
   let onMessage = null;
+  let onInstalled = null;
+  let writes = 0;
   const none = { addListener: () => {} };
   const chrome = {
-    runtime: { id: 'xrnsocial', onMessage: { addListener: fn => { onMessage = fn; } }, onInstalled: none, onStartup: none },
-    storage: { local: { get: (k, cb) => cb({}), set: (o, cb) => cb && cb() }, onChanged: none },
+    runtime: { id: 'xrnsocial', onMessage: { addListener: fn => { onMessage = fn; } }, onInstalled: { addListener: fn => { onInstalled = fn; } }, onStartup: none },
+    storage: { local: { get: (k, cb) => cb({}), set: (o, cb) => { writes++; if (cb) cb(); } }, onChanged: none },
     commands: { onCommand: none },
     action: { setBadgeText: () => {}, setBadgeBackgroundColor: () => {} },
     tabs: { query: () => Promise.resolve([]), sendMessage: () => Promise.resolve() },
@@ -690,6 +692,92 @@ console.log('\nthe background page');
   ok('a message from anywhere but a tab injects nothing', fromPopup === null && calls.length === 0, JSON.stringify(calls));
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
   ok('the manifest asks for the scripting permission it needs', manifest.permissions.includes('scripting'));
+  /* It wrote back what it read, which undid a change made in between. */
+  onInstalled({ reason: 'update' });
+  await frame();
+  ok('installing or updating writes no settings', writes === 0, writes + ' writes');
+}
+
+/* Settings writes are read-modify-writes, and two that overlapped were built
+ * from the same read: the later one undid the earlier. Storage here answers
+ * a moment later, as the browser's does. */
+console.log('\nsettings writes');
+{
+  const w = boot(PAGE);
+  const S = w.BFX_STORE;
+  const stored = {};
+  let refuse = null;
+  let unreadable = false;
+  const later = fn => setTimeout(fn, 1);
+  const failing = (message, cb) => { w.chrome.runtime.lastError = { message }; cb(); w.chrome.runtime.lastError = null; };
+  w.chrome.storage.local = {
+    get: (k, cb) => later(() => unreadable ? failing('read failed', () => cb(undefined)) : cb({ [k]: stored[k] && JSON.parse(JSON.stringify(stored[k])) })),
+    set: (o, cb) => later(() => refuse ? failing(refuse, cb) : (Object.assign(stored, JSON.parse(JSON.stringify(o))), cb()))
+  };
+  await Promise.all([S.update(s => { s.placeholders = true; }), S.update(s => { s.keywords.enabled = true; })]);
+  const both = await S.get();
+  ok('two writes made together both land', both.placeholders === true && both.keywords.enabled === true,
+    JSON.stringify({ placeholders: both.placeholders, words: both.keywords.enabled }));
+  refuse = 'QUOTA_BYTES quota exceeded';
+  const refused = await S.update(s => { s.enabled = false; }).then(() => 'saved', e => e.message);
+  refuse = null;
+  ok('a write storage refuses is reported as not saved', refused === 'QUOTA_BYTES quota exceeded', refused);
+  const after = await S.update(s => { s.placeholders = false; }).then(() => S.get());
+  ok('…and holds up no write after it', after.placeholders === false && after.enabled === true);
+  unreadable = true;
+  const unread = await S.update(s => { s.placeholders = true; }).then(() => 'saved', e => e.message);
+  unreadable = false;
+  ok('a write is never built on settings that could not be read', unread === 'read failed' &&
+    stored.bfx.keywords.enabled === true && stored.bfx.placeholders === false, unread);
+}
+
+/* The popup, run as the browser runs it, over storage that can refuse. */
+console.log('\nthe popup');
+{
+  const html = fs.readFileSync(path.join(root, 'src/popup/popup.html'), 'utf8');
+  const { window: p } = new JSDOM(html, { url: 'https://popup.test/src/popup/popup.html', pretendToBeVisual: true, runScripts: 'outside-only' });
+  const stored = {};
+  let refuse = null;
+  p.chrome = {
+    storage: {
+      local: {
+        get: (k, cb) => setTimeout(() => cb({ [k]: stored[k] && JSON.parse(JSON.stringify(stored[k])) }), 1),
+        set: (o, cb) => setTimeout(() => {
+          if (refuse) { p.chrome.runtime.lastError = { message: refuse }; cb(); p.chrome.runtime.lastError = null; return; }
+          Object.assign(stored, JSON.parse(JSON.stringify(o)));
+          cb();
+        }, 1)
+      },
+      onChanged: { addListener: () => {} }
+    },
+    runtime: { lastError: null, openOptionsPage: () => {} },
+    tabs: {
+      query: (q, cb) => cb([{ id: 1, url: 'https://www.facebook.com/' }]),
+      sendMessage: (id, msg, cb) => { if (cb) setTimeout(() => cb(undefined), 1); }
+    }
+  };
+  for (const src of Array.from(p.document.querySelectorAll('script[src]')).map(s => s.getAttribute('src'))) {
+    p.eval(fs.readFileSync(path.join(root, 'src/popup', src), 'utf8'));
+  }
+  await frame();
+  const $p = id => p.document.getElementById(id);
+  const flip = on => { $p('siteEnabled').checked = on; $p('siteEnabled').dispatchEvent(new p.Event('change')); };
+  ok('it opens on the tab\'s site', $p('siteName').textContent === 'Facebook', $p('siteName').textContent);
+  flip(false);
+  await frame();
+  ok('a switch flipped is saved', stored.bfx && stored.bfx.sites.facebook.enabled === false && $p('tallyWord').textContent === 'Off here',
+    $p('tallyWord').textContent);
+  refuse = 'QUOTA_BYTES quota exceeded';
+  flip(true);
+  await frame();
+  ok('one storage refuses goes back to what is stored, and says Not saved',
+    stored.bfx.sites.facebook.enabled === false && !$p('siteEnabled').checked && $p('tallyWord').textContent === 'Not saved',
+    $p('tallyWord').textContent + ' / checked ' + $p('siteEnabled').checked);
+  refuse = null;
+  flip(true);
+  await frame();
+  ok('…until a write goes through', stored.bfx.sites.facebook.enabled === true && $p('tallyWord').textContent !== 'Not saved',
+    $p('tallyWord').textContent);
 }
 
 /* ------------------------------------------------------- late labels -- */
