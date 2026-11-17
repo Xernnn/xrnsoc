@@ -56,7 +56,8 @@
   padding: 1px 5px;
   font-weight: 600;
 }
-.bfx-warn:empty { display: none; }
+/* Its words are in a shadow root, so it always looks :empty; the level says. */
+.bfx-warn:not([data-level]), .bfx-warn[data-level=""] { display: none; }
 .bfx-warn {
   margin-top: 7px;
   padding-top: 7px;

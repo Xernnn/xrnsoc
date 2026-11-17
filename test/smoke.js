@@ -472,6 +472,16 @@ console.log('\nwhat the page can read');
   w.BFX_PICKER.toast('Hidden \u201cPosts from Dana Example\u201d \u2014 undo from the xrnsocial popup');
   ok('the toast that confirms a pick keeps its words out of the page\'s reach',
     !!w.document.querySelector('.bfx-toast') && !readable(w).includes('Posts from Dana'), w.document.querySelector('.bfx-toast') && w.document.querySelector('.bfx-toast').outerHTML);
+  w.document.querySelector('.bfx-toast').remove();
+  w.BFX_PICKER.start();
+  userEvent($$('u-organic'), new w.MouseEvent('mousemove', { bubbles: true }));
+  ok('so does the picker\'s bar: whose posts, the rule, and its warning', !!w.document.querySelector('.bfx-picker-root') &&
+    !readable(w).includes('Posts from Dana') && !readable(w).includes(author) && !readable(w).includes('every post from'),
+    w.document.querySelector('.bfx-picker-root').outerHTML);
+  const said = w.BFX_PICKER.said ? w.BFX_PICKER.said() : {};
+  ok('…which the extension still reads', said.name === 'Posts from Dana Example' && said.sel === author && /Dana/.test(said.warn),
+    JSON.stringify(said));
+  w.BFX_PICKER.stop();
   w.BFX_ENGINE.apply(settings(false));
   await frame();
   ok('turning the rule off takes its sheet back out', backgrounds.get(w).sheets.length === 0, JSON.stringify(backgrounds.get(w).sheets));

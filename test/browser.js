@@ -939,25 +939,37 @@ async function until(fn, timeout = 3000) {
       const r = el.getBoundingClientRect();
       return { x: r.left + Math.min(r.width / 2, 40), y: r.top + r.height / 2 };
     }, sel);
-    const pickerNow = () => page.evaluate(() => {
-      const host = document.querySelector('.bfx-picker-root');
-      if (!host) return null;
-      const btn = act => {
-        const b = host.querySelector(`[data-act="${act}"]`);
-        return { shown: b.getClientRects().length > 0, on: !b.disabled, text: b.textContent };
-      };
-      const r = host.querySelector('.bfx-box').getBoundingClientRect();
-      const bar = host.querySelector('.bfx-bar').getBoundingClientRect();
-      return {
-        touch: host.hasAttribute('data-bfx-touch'),
-        top: host.hasAttribute('data-bfx-top'),
-        name: host.querySelector('.bfx-name').textContent,
-        hint: host.querySelector('.bfx-bar-hint').getClientRects().length > 0,
-        box: { left: r.left, right: r.right, top: r.top, bottom: r.bottom },
-        bar: { top: bar.top, bottom: bar.bottom, width: bar.width },
-        smaller: btn('smaller'), bigger: btn('bigger'), mode: btn('mode'), cancel: btn('cancel'), hide: btn('hide')
-      };
+    /* The bar's words are in closed shadow roots, out of the page's reach and
+     * so out of page.evaluate's: the extension asks the tab for them. */
+    const pickerSaid = () => sw.evaluate(async () => {
+      const [tab] = await chrome.tabs.query({ url: ['https://www.reddit.com/*', 'https://www.linkedin.com/*', 'https://mangadex.org/*'] });
+      const res = await chrome.tabs.sendMessage(tab.id, { type: 'bfx:status' });
+      return res && res.said;
     });
+    const pickerNow = async () => {
+      const shown = await page.evaluate(() => {
+        const host = document.querySelector('.bfx-picker-root');
+        if (!host) return null;
+        const btn = act => {
+          const b = host.querySelector(`[data-act="${act}"]`);
+          return { shown: b.getClientRects().length > 0, on: !b.disabled, text: b.textContent };
+        };
+        const r = host.querySelector('.bfx-box').getBoundingClientRect();
+        const bar = host.querySelector('.bfx-bar').getBoundingClientRect();
+        return {
+          touch: host.hasAttribute('data-bfx-touch'),
+          top: host.hasAttribute('data-bfx-top'),
+          pageReads: host.querySelector('.bfx-name').textContent + host.querySelector('.bfx-sel').textContent,
+          hint: host.querySelector('.bfx-bar-hint').getClientRects().length > 0,
+          box: { left: r.left, right: r.right, top: r.top, bottom: r.bottom },
+          bar: { top: bar.top, bottom: bar.bottom, width: bar.width },
+          smaller: btn('smaller'), bigger: btn('bigger'), mode: btn('mode'), cancel: btn('cancel'), hide: btn('hide')
+        };
+      });
+      if (!shown) return null;
+      const said = await pickerSaid();
+      return Object.assign(shown, { name: said ? said.name : '' });
+    };
     const tapOn = async sel => {
       const at = await spotOf(sel);
       await page.touchscreen.tap(at.x, at.y);
@@ -985,10 +997,11 @@ async function until(fn, timeout = 3000) {
     await sleep(60);
     pk = await pickerNow();
     ok('moving the mouse marks what it is over', pk.name === 'My cat found a box', pk.name);
+    ok('…and the page cannot read what the bar says', pk.pageReads === '', pk.pageReads);
     await page.keyboard.press('ArrowUp');
     for (let i = 0; i < 12; i++) await page.keyboard.press('ArrowUp');
     await page.keyboard.press('ArrowDown');
-    ok('↑ past the top and one ↓ moves at once', await page.evaluate(() => document.querySelector('.bfx-name').textContent) !== '' &&
+    ok('↑ past the top and one ↓ moves at once', (await pickerNow()).name !== '' &&
       (await pickerNow()).name !== 'My cat found a box');
     await page.keyboard.press('Escape');
     ok('Esc leaves, saving nothing', !(await pickerNow()) && (await picked()).length === 0);

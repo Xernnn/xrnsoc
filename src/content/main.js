@@ -60,6 +60,7 @@
           hidden: engine.hiddenCount(),
           stats: engine.stats(),
           picking: picker.isActive(),
+          said: picker.said(),
           path: location.pathname
         });
         break;
