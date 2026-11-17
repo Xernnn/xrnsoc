@@ -570,7 +570,7 @@ function refreshStats(delay) {
   if (!tab) return;
   setTimeout(function () {
     chrome.tabs.sendMessage(tab.id, { type: 'bfx:status' }, function (res) {
-      void chrome.runtime.lastError;   // tab predates install; reload fixes it
+      if (chrome.runtime.lastError) { needsReload(); return; }
       if (!res || !res.ok) return;
       stats = res.stats || null;
       if (state) render();
@@ -646,9 +646,24 @@ el.placeholders.addEventListener('change', function () {
 });
 clickTogglesSwitch(el.placeholdersRow, el.placeholders);
 
+/* A tab opened before the install or an update has no content script to
+ * answer, and only a reload gives it one: the button offers that instead of
+ * doing nothing. */
+var stale = false;
+
+function needsReload() {
+  stale = true;
+  el.pickLabel.textContent = 'Reload tab';
+}
+
 el.pick.addEventListener('click', function () {
+  if (stale) {
+    chrome.tabs.reload(tab.id);
+    window.close();
+    return;
+  }
   chrome.tabs.sendMessage(tab.id, { type: 'bfx:pick' }, function () {
-    void chrome.runtime.lastError;   // tab predates install; reload fixes it
+    if (chrome.runtime.lastError) { needsReload(); return; }
     window.close();
   });
 });

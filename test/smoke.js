@@ -769,20 +769,21 @@ console.log('\nsettings writes');
     stored.bfx.keywords.enabled === true && stored.bfx.placeholders === false, unread);
 }
 
-/* The popup, run as the browser runs it, over storage that can refuse. */
+/* The popup, run as the browser runs it, over storage that can refuse and a
+ * tab that may not answer. */
 console.log('\nthe popup');
-{
+const bootPopup = async ({ tabAnswers = true } = {}) => {
   const html = fs.readFileSync(path.join(root, 'src/popup/popup.html'), 'utf8');
   const { window: p } = new JSDOM(html, { url: 'https://popup.test/src/popup/popup.html', pretendToBeVisual: true, runScripts: 'outside-only' });
-  const stored = {};
-  let refuse = null;
+  const io = { stored: {}, refuse: null, sent: [], reloaded: [], closed: false };
+  const failing = (message, cb, arg) => { p.chrome.runtime.lastError = { message }; cb(arg); p.chrome.runtime.lastError = null; };
   p.chrome = {
     storage: {
       local: {
-        get: (k, cb) => setTimeout(() => cb({ [k]: stored[k] && JSON.parse(JSON.stringify(stored[k])) }), 1),
+        get: (k, cb) => setTimeout(() => cb({ [k]: io.stored[k] && JSON.parse(JSON.stringify(io.stored[k])) }), 1),
         set: (o, cb) => setTimeout(() => {
-          if (refuse) { p.chrome.runtime.lastError = { message: refuse }; cb(); p.chrome.runtime.lastError = null; return; }
-          Object.assign(stored, JSON.parse(JSON.stringify(o)));
+          if (io.refuse) return failing(io.refuse, cb);
+          Object.assign(io.stored, JSON.parse(JSON.stringify(o)));
           cb();
         }, 1)
       },
@@ -791,31 +792,53 @@ console.log('\nthe popup');
     runtime: { lastError: null, openOptionsPage: () => {} },
     tabs: {
       query: (q, cb) => cb([{ id: 1, url: 'https://www.facebook.com/' }]),
-      sendMessage: (id, msg, cb) => { if (cb) setTimeout(() => cb(undefined), 1); }
+      sendMessage: (id, msg, cb) => {
+        io.sent.push(msg.type);
+        if (!cb) return;
+        setTimeout(() => tabAnswers ? cb({ ok: true }) : failing('Could not establish connection. Receiving end does not exist.', cb), 1);
+      },
+      reload: id => { io.reloaded.push(id); }
     }
   };
+  p.close = () => { io.closed = true; };
   for (const src of Array.from(p.document.querySelectorAll('script[src]')).map(s => s.getAttribute('src'))) {
     p.eval(fs.readFileSync(path.join(root, 'src/popup', src), 'utf8'));
   }
   await frame();
-  const $p = id => p.document.getElementById(id);
+  return { p, io, $: id => p.document.getElementById(id) };
+};
+{
+  const { p, io, $: $p } = await bootPopup();
+  const stored = io.stored;
   const flip = on => { $p('siteEnabled').checked = on; $p('siteEnabled').dispatchEvent(new p.Event('change')); };
   ok('it opens on the tab\'s site', $p('siteName').textContent === 'Facebook', $p('siteName').textContent);
   flip(false);
   await frame();
   ok('a switch flipped is saved', stored.bfx && stored.bfx.sites.facebook.enabled === false && $p('tallyWord').textContent === 'Off here',
     $p('tallyWord').textContent);
-  refuse = 'QUOTA_BYTES quota exceeded';
+  io.refuse = 'QUOTA_BYTES quota exceeded';
   flip(true);
   await frame();
   ok('one storage refuses goes back to what is stored, and says Not saved',
     stored.bfx.sites.facebook.enabled === false && !$p('siteEnabled').checked && $p('tallyWord').textContent === 'Not saved',
     $p('tallyWord').textContent + ' / checked ' + $p('siteEnabled').checked);
-  refuse = null;
+  io.refuse = null;
   flip(true);
   await frame();
   ok('…until a write goes through', stored.bfx.sites.facebook.enabled === true && $p('tallyWord').textContent !== 'Not saved',
     $p('tallyWord').textContent);
+  $p('pick').click();
+  await frame();
+  ok('Hide something starts the picker in the tab and closes the popup', io.sent.includes('bfx:pick') && io.closed && !io.reloaded.length);
+}
+/* A tab opened before the install or an update has no content script, so
+ * nothing answered and Hide something did nothing at all. */
+{
+  const { io, $: $p } = await bootPopup({ tabAnswers: false });
+  ok('on a tab that does not answer, the button says Reload tab', $p('pickLabel').textContent === 'Reload tab', $p('pickLabel').textContent);
+  $p('pick').click();
+  await frame();
+  ok('…and reloads it', io.reloaded.join() === '1' && io.closed, JSON.stringify(io));
 }
 
 /* A page that never stops changing (a video's progress, a live chat) was
