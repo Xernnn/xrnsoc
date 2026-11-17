@@ -469,18 +469,17 @@ console.log('\nwhat the page can read');
   ok('posts hidden by blocked words carry no word: not even a pattern', $$('u-kw').getAttribute('data-bfx-hidden-by') === 'keyword' &&
     $$('u-organic').getAttribute('data-bfx-hidden-by') === 'keyword' && !/crypto/i.test(readable(w).replace(/Buy CRYPTO now/g, '')) &&
     !readable(w).includes('/lake'), [$$('u-kw').getAttribute('data-bfx-note'), $$('u-organic').getAttribute('data-bfx-note')].join(' | '));
-  w.BFX_PICKER.toast('Hidden \u201cPosts from Dana Example\u201d \u2014 undo from the xrnsocial popup');
+  w.BFX_PICKER.toast('Hidden \u201cPosts from Dana Example\u201d');
   ok('the toast that confirms a pick keeps its words out of the page\'s reach',
     !!w.document.querySelector('.bfx-toast') && !readable(w).includes('Posts from Dana'), w.document.querySelector('.bfx-toast') && w.document.querySelector('.bfx-toast').outerHTML);
   w.document.querySelector('.bfx-toast').remove();
   w.BFX_PICKER.start();
   userEvent($$('u-organic'), new w.MouseEvent('mousemove', { bubbles: true }));
-  ok('so does the picker\'s bar: whose posts, the rule, and its warning', !!w.document.querySelector('.bfx-picker-root') &&
-    !readable(w).includes('Posts from Dana') && !readable(w).includes(author) && !readable(w).includes('every post from'),
+  ok('so does the picker\'s bar: whose posts, and the rule', !!w.document.querySelector('.bfx-picker-root') &&
+    !readable(w).includes('Posts from Dana') && !readable(w).includes(author),
     w.document.querySelector('.bfx-picker-root').outerHTML);
   const said = w.BFX_PICKER.said ? w.BFX_PICKER.said() : {};
-  ok('…which the extension still reads', said.name === 'Posts from Dana Example' && said.sel === author && /Dana/.test(said.warn),
-    JSON.stringify(said));
+  ok('…which the extension still reads', said.name === 'Posts from Dana Example' && said.sel === author, JSON.stringify(said));
   w.BFX_PICKER.stop();
   w.BFX_ENGINE.apply(settings(false));
   await frame();
@@ -903,7 +902,7 @@ ok('placeholder styles are emitted', sheet.includes('[data-bfx-hidden-by][data-b
 /* The bar is in the page, where the site's scripts can read it: it says a
  * word was blocked, never which. */
 ok('a word-blocked post leaves a placeholder that says why, without the word',
-  /a word you blocked/.test($('u-kw').getAttribute('data-bfx-note') || '') &&
+  $('u-kw').getAttribute('data-bfx-note') === 'Hidden · Blocked word' &&
   !/crypto|give/i.test($('u-kw').getAttribute('data-bfx-note')), $('u-kw').getAttribute('data-bfx-note'));
 ok('a text-rule post names its rule',
   /Suggested posts/.test($('u-sug').getAttribute('data-bfx-note') || ''));

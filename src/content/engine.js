@@ -351,7 +351,7 @@
 
   function hide(el, why, note) {
     if (!el || el.hasAttribute(BY)) return;
-    var text = note && state && state.placeholders ? 'Hidden by xrnsocial · ' + note + ' — click to show' : null;
+    var text = note && state && state.placeholders ? 'Hidden · ' + note : null;
     mark(el, why, text);
     el.__bfxHide = { why: why, note: text };
     hiddenEls.add(el);
@@ -885,7 +885,7 @@
           /* The "show" bar is in the page, where the site's scripts can
            * read it, so it never says which word. */
           if (matchKeyword(unit, ctx)) {
-            hide(unit, 'keyword', 'a word you blocked');
+            hide(unit, 'keyword', 'Blocked word');
             hidden = true;
           }
         }
