@@ -1312,6 +1312,30 @@ console.log('\nx.com as of October 2026 (test/fixtures/x.html)');
     !emptied.length, emptied.join(' '));
   ok('…while a hashtag\'s posts and a profile\'s likes still lose the suggestions',
     await cellOn('https://x.com/hashtag/cats') === 'whoToFollow' && await cellOn('https://x.com/alice/likes') === 'whoToFollow');
+
+  /* A row that can't be judged yet (a heading whose accounts have not come)
+   * is looked at again for 40 scans. The count was kept for the row's whole
+   * life, so after a settings change one that had used its scans was judged
+   * at first sight, before its accounts came, and stayed. */
+  const later = boot(html, 'https://x.com/home');
+  const doc = later.document;
+  const cell = (id, inner) => Object.assign(doc.createElement('div'), { id, innerHTML: inner });
+  const head = cell('late-head', '<div><h2 role="heading"><span>More to follow</span></h2></div>');
+  const rows = cell('late-rows', '');
+  [head, rows].forEach(c => c.setAttribute('data-testid', 'cellInnerDiv'));
+  doc.getElementById('cell-wtf-more').after(head, rows);
+  later.BFX_ENGINE.apply(later.BFX_STORE.merge(null));
+  for (let i = 0; i < 45; i++) {
+    doc.body.appendChild(doc.createElement('i'));
+    await new Promise(r => setTimeout(r, 25));
+  }
+  later.BFX_ENGINE.apply(later.BFX_STORE.merge({ sites: { x: { presets: { reposts: true } } } }));
+  await frame();
+  rows.innerHTML = '<div><div data-testid="UserCell"><a href="/hal">Hal</a><button>Follow</button></div></div>';
+  await frame();
+  await frame();
+  ok('after a settings change, a row that used its scans before gets them again', head.getAttribute('data-bfx-hidden-by') === 'whoToFollow',
+    'got ' + head.getAttribute('data-bfx-hidden-by'));
 }
 
 /* ----------------------------------------------- linkedin.com, October 2026 -- */

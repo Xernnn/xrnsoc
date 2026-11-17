@@ -733,8 +733,17 @@
     };
   }
 
-  /* How many frames a unit may stay unsure before its verdict stands. */
+  /* How many frames a unit may stay unsure before its verdict stands, each
+   * time the settings change. */
   var MAX_TRIES = 40;
+
+  function tried(unit) {
+    if (unit.__bfxTriesGen !== generation) {
+      unit.__bfxTriesGen = generation;
+      unit.__bfxTries = 0;
+    }
+    return ++unit.__bfxTries;
+  }
 
   /* Elements that changed since the last scan. Sites render a post in
    * pieces and empty posts that scroll away, then refill them, so a verdict
@@ -840,7 +849,7 @@
             hidden = true;
           }
         }
-        if (!hidden && ctx.isUnsure() && (unit.__bfxTries = (unit.__bfxTries || 0) + 1) < MAX_TRIES) {
+        if (!hidden && ctx.isUnsure() && tried(unit) < MAX_TRIES) {
           continue;
         }
         unit.__bfxGen = generation;
