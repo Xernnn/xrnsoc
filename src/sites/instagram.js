@@ -263,6 +263,10 @@
     keepReel(box, api);
   }
 
+  function inMessages() {
+    return location.pathname.indexOf('/direct/') === 0;
+  }
+
   /* --------------------------------------------------------- picker ---- */
 
   /* Picking a post means "posts from this account", keyed on the header's
@@ -303,7 +307,10 @@
     },
     /* Messages are left alone: a reel or a word in a chat is yours to see. */
     skip: function (unit) {
-      return location.pathname.indexOf('/direct/') === 0 || !!unit.closest('[role="dialog"]');
+      return inMessages() || !!unit.closest('[role="dialog"]');
+    },
+    pageKey: function () {
+      return inMessages() ? 'messages' : '';
     },
     picker: {
       authorOf: authorOf,

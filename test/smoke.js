@@ -539,8 +539,8 @@ console.log('\na /regex/ word that could freeze the tab');
 {
   const w = boot(PAGE);
   const S = w.BFX_STORE;
-  const words = () => S.merge({ presets: Object.fromEntries(BFX_PRESETS.map(r => [r.id, false])),
-    keywords: { enabled: true, terms: ['/photo|giveaway/i'] } });
+  const words = (...more) => S.merge({ presets: Object.fromEntries(BFX_PRESETS.map(r => [r.id, false])),
+    keywords: { enabled: true, terms: ['/photo|giveaway/i'].concat(more) } });
   const now = w.Date.now;
   let slow = 0;
   w.Date.now = function () { return now.call(w.Date) + (slow ? (slow += 200) : 0); };
@@ -550,7 +550,7 @@ console.log('\na /regex/ word that could freeze the tab');
   const hid = ['u-ok', 'u-kw'].filter(id => w.document.getElementById(id).hasAttribute('data-bfx-hidden-by'));
   ok('a pattern that takes too long over one post is not tried on the posts after it', !hid.length, 'still hid ' + hid.join(', '));
   slow = 0;
-  w.BFX_ENGINE.apply(words());
+  w.BFX_ENGINE.apply(words('zzz'));
   await frame();
   ok('…nor after a settings change, on that page', !w.document.getElementById('u-kw').hasAttribute('data-bfx-hidden-by'));
   const fresh = boot(PAGE);
@@ -558,6 +558,91 @@ console.log('\na /regex/ word that could freeze the tab');
   await frame();
   ok('…while on a page where it is quick it matches as usual', ['u-ok', 'u-kw'].every(id =>
     fresh.document.getElementById(id).getAttribute('data-bfx-hidden-by') === 'keyword'));
+}
+
+/* Every change of settings, and every new address, showed everything hidden
+ * and judged every post again, in every open tab of every site: a switch
+ * flipped for Reddit did that on Facebook, and so did opening and closing a
+ * post. Each record here is something shown again, or hidden again. */
+console.log('\nwhat a change of settings or page redoes');
+{
+  const feed = fs.readFileSync(path.join(__dirname, 'fixtures/feed.html'), 'utf8');
+  const shownAgain = async (w, act) => {
+    const records = [];
+    const mo = new w.MutationObserver(list => records.push(...list));
+    mo.observe(w.document.documentElement, { subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['data-bfx-hidden-by'] });
+    await act();
+    await frame();
+    records.push(...mo.takeRecords());
+    mo.disconnect();
+    return records.filter(r => r.oldValue !== null).map(r => (r.target.id || r.target.tagName) + ':' + r.oldValue);
+  };
+  const copy = s => JSON.parse(JSON.stringify(s));
+  const w = boot(feed);
+  const S = w.BFX_STORE;
+  const by = id => w.document.getElementById(id).getAttribute('data-bfx-hidden-by');
+  const base = S.merge({ keywords: { enabled: true, terms: ['crypto'] } });
+  w.BFX_ENGINE.apply(base);
+  await frame();
+  const other = copy(base);
+  other.sites.reddit.presets.recommended = false;
+  const otherSite = await shownAgain(w, () => w.BFX_ENGINE.apply(other));
+  ok('a switch flipped for another site changes nothing here', by('u-ad') === 'sponsored' && !otherSite.length, otherSite.join(' '));
+  const picked = copy(other);
+  picked.sites.facebook.custom = [{ id: 'p1', selector: '[data-focus-target="stories"]', label: 'Stories', scope: 'all', path: '/', enabled: true }];
+  const pickedOnly = await shownAgain(w, () => w.BFX_ENGINE.apply(picked));
+  ok('a picked rule changes only its own sheet', !pickedOnly.length &&
+    backgrounds.get(w).sheets.some(css => css.includes('data-focus-target')), pickedOnly.join(' '));
+  const lake = copy(picked);
+  lake.keywords.terms = ['crypto', 'lake'];
+  const wordAdded = await shownAgain(w, () => w.BFX_ENGINE.apply(lake));
+  ok('a new word hides its posts and shows nothing hidden by a rule again',
+    by('u-organic') === 'keyword' && by('u-ad') === 'sponsored' && wordAdded.every(r => r.endsWith(':keyword')), wordAdded.join(' '));
+  const wordGone = await shownAgain(w, () => w.BFX_ENGINE.apply(picked));
+  ok('…and a word taken off brings back only its own posts', !by('u-organic') && by('u-kw') === 'keyword' &&
+    by('u-ad') === 'sponsored' && wordGone.every(r => r.endsWith(':keyword')), wordGone.join(' '));
+  const noSuggested = copy(picked);
+  noSuggested.sites.facebook.presets.suggested = false;
+  const hadSuggested = by('u-sug') === 'suggested';
+  w.BFX_ENGINE.apply(noSuggested);
+  ok('…while a switch on this site still redoes the page', hadSuggested && !by('u-sug'));
+
+  /* The address, as the bootstrap watches it. */
+  const page = async (html, url, settings) => {
+    const p = boot(html, url);
+    p.chrome.storage.local.set({ bfx: settings || p.BFX_STORE.merge(null) });
+    p.eval(fs.readFileSync(path.join(root, 'src/content/main.js'), 'utf8'));
+    await frame();
+    return p;
+  };
+  const go = (p, to) => async () => {
+    p.history.pushState({}, '', to);
+    p.dispatchEvent(new p.PopStateEvent('popstate'));
+    await new Promise(r => setTimeout(r, 10));
+  };
+  const scoped = S.merge({ keywords: { enabled: true, terms: ['crypto'] }, sites: { facebook: { custom: [
+    { id: 'g', selector: '[data-focus-target="stories"]', label: 'Stories', scope: 'path', path: '/groups/', enabled: true }] } } });
+  const fb = await page(feed, 'https://www.facebook.com/', scoped);
+  const opened = await shownAgain(fb, go(fb, '/groups/'));
+  ok('a new page on Facebook shows nothing hidden again', fb.document.querySelector('[data-bfx-hidden-by]') && !opened.length, opened.join(' '));
+  ok('…and brings in a picked rule kept to that page', backgrounds.get(fb).sheets.some(css => css.includes('data-focus-target')));
+  await go(fb, '/')();
+  await frame();
+  ok('…which leaves again with it', !backgrounds.get(fb).sheets.length, JSON.stringify(backgrounds.get(fb).sheets));
+
+  const x = fs.readFileSync(path.join(__dirname, 'fixtures/x.html'), 'utf8');
+  const xp = await page(x, 'https://x.com/home');
+  const xBy = id => xp.document.getElementById(id).getAttribute('data-bfx-hidden-by');
+  const post = await shownAgain(xp, go(xp, '/alice/status/111'));
+  ok('on X, opening a post shows nothing hidden again', xBy('cell-wtf-user') === 'whoToFollow' && !post.length, post.join(' '));
+  await go(xp, '/alice/following')();
+  await frame();
+  ok('…while a page that lists accounts, which Who to follow reads, is judged again', !xBy('cell-wtf-user'), xBy('cell-wtf-user'));
+  await go(xp, '/hashtag/cats')();
+  await frame();
+  await go(xp, '/hashtag/cats?f=user')();
+  await frame();
+  ok('…as is a People tab, which only the query names', !xBy('cell-wtf-user'), xBy('cell-wtf-user'));
 }
 
 /* The background page's side of it: each sheet goes in as a user style, the

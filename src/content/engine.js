@@ -33,7 +33,6 @@
   var UNITS = site ? site.units : null;
   var SILENT = (site && site.silent) || {};
 
-  var full = null;         // the full settings last applied, for refresh()
   var state = null;        // the current site's view of them (STORE.view)
   var generation = 0;      // bumped on every settings change, invalidates marks
   var observer = null;
@@ -1000,13 +999,58 @@
     return s.enabled ? pack.redirect(s, loc) : null;
   }
 
+  /* What the site's rules read from the address (site.pageKey), as of the
+   * last full look at the page. */
+  var pageKey = '';
+
+  function keyOfPage() {
+    return site.pageKey ? String(site.pageKey(state)) : '';
+  }
+
+  /* A new address in the same tab: every supported site is a single-page
+   * app. The posts of a new page are new elements, judged as they come, so
+   * only what reads the address is redone: picked rules kept to one page,
+   * and, when the pack's key for the page changes, every verdict. Opening
+   * and closing a post neither shows what was hidden nor reads every post
+   * again. */
+  function route() {
+    if (!site || !state) return;
+    if (keyOfPage() !== pageKey) judge();
+    else applyPicked(pickedCss(state));
+  }
+
   /* --------------------------------------------------------------- api -- */
 
-  /* `next` is the full settings; the page runs on its own site's view. */
+  var PARTS = ['enabled', 'presets', 'custom', 'keywords', 'placeholders'];
+
+  /* `next` is the full settings; the page runs on its own site's view, and
+   * redoes only what changed in it. A switch flipped for another site
+   * changes nothing here; a picked rule only its sheet; a word only the
+   * posts that words hid, and a look at the rest for the new word. */
   function apply(next) {
     if (!site) return;
-    full = next;
-    state = STORE.view(next, site.id);
+    var view = STORE.view(next, site.id);
+    var was = state;
+    state = view;
+    var changed = was ? PARTS.filter(function (k) { return JSON.stringify(was[k]) !== JSON.stringify(view[k]); }) : PARTS;
+    if (!changed.some(function (k) { return k !== 'custom' && k !== 'keywords'; })) {
+      if (changed.indexOf('custom') !== -1) applyPicked(pickedCss(state));
+      if (changed.indexOf('keywords') !== -1) judgeWords();
+      return;
+    }
+    judge();
+  }
+
+  function judgeWords() {
+    keywords = state.enabled && state.keywords.enabled ? compileKeywords(state.keywords.terms) : [];
+    document.querySelectorAll('[' + BY + '="keyword"]').forEach(unhide);
+    generation++;
+    observe();
+  }
+
+  /* Everything again, from the settings in `state`. */
+  function judge() {
+    pageKey = keyOfPage();
     generation++;
 
     jsRules = state.enabled
@@ -1024,7 +1068,10 @@
     /* Anything hidden by a rule that is now off must come back. Cheap, and it
      * means toggling a switch is instantly visible instead of needing F5. */
     unhideAll();
+    observe();
+  }
 
+  function observe() {
     if (needsObserver(state)) {
       startObserver();
       schedule();
@@ -1035,13 +1082,14 @@
   }
 
   function refresh() {
-    if (full) apply(full);
+    if (site && state) judge();
   }
 
   root.BFX_ENGINE = {
     site: site,
     apply: apply,
     refresh: refresh,
+    route: route,
     scan: schedule,
     stats: stats,
     redirectFor: redirectFor,

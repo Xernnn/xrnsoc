@@ -434,6 +434,12 @@
     presets: PRESETS,
     silent: { promoted: true },
     heuristics: HEURISTICS,
+    /* What the rules that are on read from the address: whether the page
+     * lists accounts, and which post is open. */
+    pageKey: function (view) {
+      return (view.presets.whoToFollow && onAccountList() ? 'accounts' : '') + ' ' +
+        (view.presets.verifiedReplies ? openedId() || '' : '');
+    },
     globals: {
       premiumUpsell: sidebarBlock('premiumUpsell'),
       news: sidebarBlock('news'),

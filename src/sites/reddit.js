@@ -255,6 +255,11 @@
      * reader sees. */
     unseen: 'faceplate-screen-reader-content',
     heuristics: HEURISTICS,
+    /* What the rules that are on read from the address: whether this is the
+     * home feed. */
+    pageKey: function (view) {
+      return view.presets.recommended && HOME.test(location.pathname) ? 'home' : '';
+    },
     /* Reddit's player keeps its <video> in its shadow root. */
     videoHosts: 'shreddit-player, shreddit-player-2',
     globals: {
