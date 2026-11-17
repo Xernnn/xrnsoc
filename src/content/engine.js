@@ -383,30 +383,78 @@
   /* ------------------------------------------------------- autoplay -- */
 
   /* Sites start videos as they scroll into view. With the switch on, a video
-   * that starts playing without a click or Enter/Space in the moment before
-   * is paused again; one the person started plays on. Media events do not
-   * bubble, but capturing listeners on the document still see them. */
+   * that starts playing by itself is paused again. One the person started
+   * plays on, through every pause and restart its site makes (an ad break,
+   * a player rebuilt), until it is given a new source. Started by the
+   * person: within GESTURE_MS of a press or a play key anywhere, or within
+   * ON_VIDEO_MS of a click or play key on that video, for a site that takes
+   * its time to start it. Media events do not bubble, but capturing
+   * listeners on the document still see them. */
   var GESTURE_MS = 1500;
+  var ON_VIDEO_MS = 5000;
   var lastGesture = 0;
+  var lastAim = null;      // where the last click or play key went: { at, x, y, target }
+
+  var PLAY_KEYS = { 'Enter': true, ' ': true, 'k': true, 'K': true, 'MediaPlayPause': true, 'MediaPlay': true };
+
+  function typing(el) {
+    return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+  }
 
   /* Only the person's own: a page that makes up a pointerdown before it
-   * starts a video would get its autoplay past the switch. */
+   * starts a video would get its autoplay past the switch. A k typed into a
+   * box is a letter. A press is not aimed at anything: on a phone, every
+   * scroll starts with one. */
   function noteGesture(e) {
     if (!e.isTrusted) return;
-    if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+    if (e.type === 'keydown' && (!PLAY_KEYS[e.key] || (/^k$/i.test(e.key) && typing(e.target)))) return;
     lastGesture = Date.now();
+    if (e.type === 'pointerdown') return;
+    var path = e.composedPath ? e.composedPath() : [];
+    lastAim = { at: lastGesture, x: e.clientX, y: e.clientY, target: path[0] || e.target };
   }
   document.addEventListener('pointerdown', noteGesture, true);
+  document.addEventListener('click', noteGesture, true);
   document.addEventListener('keydown', noteGesture, true);
+
+  function area(el) {
+    var r = el.getBoundingClientRect();
+    return r.width * r.height;
+  }
+
+  /* A click inside the video's box (its controls are drawn over it), or a
+   * key on the video, on something in it, or on its player around it. */
+  function aimedAt(video, aim) {
+    var t = aim.target;
+    if (t === video || (t && t.nodeType === 1 && video.contains(t))) return true;
+    if (typeof aim.x === 'number') {
+      var r = video.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && aim.x >= r.left && aim.x <= r.right && aim.y >= r.top && aim.y <= r.bottom;
+    }
+    return !!t && t.nodeType === 1 && t !== document.body && t !== document.documentElement &&
+      t.contains(video) && area(t) <= 2 * area(video);
+  }
+
+  function startedByPerson(video) {
+    var now = Date.now();
+    if (now - lastGesture < GESTURE_MS) return true;
+    return !!lastAim && now - lastAim.at < ON_VIDEO_MS && aimedAt(video, lastAim);
+  }
 
   function onPlay(e) {
     var video = e.target;
     if (!state || !state.enabled || !state.presets.noAutoplay) return;
     if (!video || video.tagName !== 'VIDEO') return;
-    if (Date.now() - lastGesture < GESTURE_MS) { video.__bfxStarted = true; return; }
+    if (video.__bfxStarted || startedByPerson(video)) { video.__bfxStarted = true; return; }
     video.pause();
   }
   document.addEventListener('play', onPlay, true);
+
+  /* A feed that moves its player on to the next post gives it a new source. */
+  function onEmptied(e) {
+    if (e.target && e.target.tagName === 'VIDEO') e.target.__bfxStarted = false;
+  }
+  document.addEventListener('emptied', onEmptied, true);
 
   /* "play" does not leave a shadow root, so a player that keeps its <video>
    * in one (Reddit's shreddit-player) is never heard from the document. The
@@ -422,8 +470,9 @@
       if (!root.__bfxPlay) {
         root.__bfxPlay = true;
         root.addEventListener('play', onPlay, true);
+        root.addEventListener('emptied', onEmptied, true);
         root.querySelectorAll('video').forEach(function (v) {
-          if (!v.paused && !v.__bfxStarted && Date.now() - lastGesture >= GESTURE_MS) v.pause();
+          if (!v.paused && !v.__bfxStarted && !startedByPerson(v)) v.pause();
         });
       }
     });
