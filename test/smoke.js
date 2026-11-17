@@ -921,6 +921,12 @@ const notFb = ['adsmanager.facebook.com', 'business.facebook.com', 'developers.f
 ok('the Facebook rules run on Facebook and Messenger, and on none of Facebook\'s other apps',
   fbHosts.every(h => BFX_SITES.forHost(h) === 'facebook') && notFb.every(h => BFX_SITES.forHost(h) === null),
   fbHosts.concat(notFb).map(h => h + '=' + BFX_SITES.forHost(h)).join(' '));
+/* Facebook in a language of its own address, and its older phone hosts. */
+const fbMore = ['vi-vn.facebook.com', 'en-gb.facebook.com', 'pt-br.facebook.com', 'mbasic.facebook.com', 'touch.facebook.com', 'mobile.facebook.com'];
+const notFbMore = ['ads-manager.facebook.com', 'vi-vn.business.facebook.com', 'vi-vnx.facebook.com'];
+ok('…and on Facebook in another language or on an older phone address',
+  fbMore.every(h => BFX_SITES.forHost(h) === 'facebook') && notFbMore.every(h => BFX_SITES.forHost(h) === null),
+  fbMore.concat(notFbMore).map(h => h + '=' + BFX_SITES.forHost(h)).join(' '));
 const old = BFX_STORE.merge({ enabled: true, presets: { stories: true, sponsored: false }, custom: [{ id: 'o1', selector: '#x', scope: 'all' }] });
 ok('settings from before other sites move to Facebook',
   old.sites.facebook.presets.stories === true && old.sites.facebook.presets.sponsored === false &&
