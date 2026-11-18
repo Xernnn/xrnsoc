@@ -776,10 +776,10 @@ console.log('\nsettings writes');
 /* The popup, run as the browser runs it, over storage that can refuse and a
  * tab that may not answer. */
 console.log('\nthe popup');
-const bootPopup = async ({ tabAnswers = true } = {}) => {
+const bootPopup = async ({ tabAnswers = true, stored = {} } = {}) => {
   const html = fs.readFileSync(path.join(root, 'src/popup/popup.html'), 'utf8');
   const { window: p } = new JSDOM(html, { url: 'https://popup.test/src/popup/popup.html', pretendToBeVisual: true, runScripts: 'outside-only' });
-  const io = { stored: {}, refuse: null, sent: [], reloaded: [], closed: false };
+  const io = { stored, refuse: null, sent: [], reloaded: [], closed: false };
   const failing = (message, cb, arg) => { p.chrome.runtime.lastError = { message }; cb(arg); p.chrome.runtime.lastError = null; };
   p.chrome = {
     storage: {
@@ -843,6 +843,49 @@ const bootPopup = async ({ tabAnswers = true } = {}) => {
   $p('pick').click();
   await frame();
   ok('…and reloads it', io.reloaded.join() === '1' && io.closed, JSON.stringify(io));
+}
+/* The delete beside a picked rule took it at once, with no way back, where
+ * Reset asks first: one slip of a finger on the phone and it was gone. */
+{
+  const picks = [
+    { id: 'p1', selector: '#top', label: 'Top banner', scope: 'all', path: '/', enabled: true, createdAt: 1 },
+    { id: 'p2', selector: '#groups', label: 'Group list', scope: 'path', path: '/groups/', enabled: false, createdAt: 2 },
+    { id: 'p3', selector: '#foot', label: 'Footer links', scope: 'all', path: '/', enabled: true, createdAt: 3 }
+  ];
+  const { p, io, $: $p } = await bootPopup({ stored: { bfx: { sites: { facebook: { custom: JSON.parse(JSON.stringify(picks)) } } } } });
+  const kept = () => io.stored.bfx.sites.facebook.custom;
+  const ids = () => kept().map(r => r.id).join();
+  const del = async label => {
+    const button = $p('custom').querySelector(`.delete[aria-label="Delete ${label}"]`);
+    if (button) button.click();
+    await frame();
+  };
+  const bar = () => $p('undo');
+  const shown = () => !!bar() && !bar().hidden;
+  const undo = async () => { if (bar()) bar().click(); await frame(); };
+  await del('Group list');
+  ok('a picked rule deleted goes at once, and Undo is offered', ids() === 'p1,p3' && shown(), ids());
+  ok('…as a bar that says Undo and nothing else', !!bar() && bar().textContent.trim() === 'Undo', bar() && bar().textContent);
+  await undo();
+  ok('Undo puts it back where it was, switched off and on its own page as before',
+    ids() === 'p1,p2,p3' && JSON.stringify(kept()[1]) === JSON.stringify(picks[1]) && !shown(), JSON.stringify(kept()));
+  ok('…and it is listed again', $p('custom').querySelectorAll('.picked').length === 3 && $p('pickedPip').textContent === '3');
+  await del('Top banner');
+  await del('Footer links');
+  ok('two deleted in a row are both gone, with Undo up', ids() === 'p2' && shown(), ids());
+  await undo();
+  ok('Undo brings back the last one first', ids() === 'p2,p3' && shown(), ids());
+  await undo();
+  ok('…and again, the one before, in its place', ids() === 'p1,p2,p3' && !shown(), ids());
+  /* Time runs fast from here: any wait of a second or more takes 100 ms. */
+  const wait = p.setTimeout;
+  p.setTimeout = (fn, ms, ...rest) => wait.call(p, fn, ms >= 1000 ? 100 : ms, ...rest);
+  await del('Group list');
+  await new Promise(r => setTimeout(r, 200));
+  ok('left alone, the bar goes and the rule stays deleted', ids() === 'p1,p3' && !shown(), ids());
+  io.refuse = 'QUOTA_BYTES quota exceeded';
+  await del('Footer links');
+  ok('a delete storage refuses offers no Undo', ids() === 'p1,p3' && !shown(), ids());
 }
 
 /* A page that never stops changing (a video's progress, a live chat) was
