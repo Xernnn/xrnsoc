@@ -447,6 +447,39 @@ async function until(fn, timeout = 3000) {
     ok('its scope can be changed', await until(async () => (await fbNow()).custom[0].scope === 'path'));
     await popup.click('#custom .delete');
     ok('and it can be deleted', await until(async () => (await fbNow()).custom.length === 0));
+    ok('…with Undo up', await until(() => popup.$eval('#undo', b => !b.hidden)));
+    await popup.click('#undo');
+    ok('Undo brings it back as it was', await until(async () => {
+      const custom = (await fbNow()).custom;
+      return custom.length === 1 && custom[0].id === 'p1' && custom[0].scope === 'path';
+    }) && await popup.$eval('#undo', b => b.hidden));
+
+    /* On a phone the popup is a page of its own, worked with a finger. */
+    const phone = await browser.newPage();
+    phone.on('pageerror', e => errors.push(e.message));
+    await phone.setViewport({ width: 412, height: 800, hasTouch: true, isMobile: true });
+    await phone.goto(`chrome-extension://${extId}/src/popup/popup.html`);
+    ok('on a touch screen the popup is the whole page', await phone.evaluate(() =>
+      matchMedia('(pointer: coarse)').matches && Math.round(document.body.getBoundingClientRect().width) === innerWidth));
+    await phone.tap('.tab[data-view="picked"]');
+    await phone.waitForSelector('#custom .delete', { visible: true });
+    await phone.tap('#custom .delete');
+    ok('a tap on delete takes the rule at once', await until(async () => (await fbNow()).custom.length === 0) &&
+      await until(() => phone.$eval('#undo', b => !b.hidden)));
+    const undoBar = await phone.$eval('#undo', b => {
+      const box = b.getBoundingClientRect();
+      return { shown: !b.hidden, height: box.height, wide: Math.round(box.width) === innerWidth, bottom: box.bottom, tabs: document.querySelector('.foot').getBoundingClientRect().top };
+    });
+    ok('Undo is a bar across the page, over the tabs, big enough for a finger',
+      undoBar.shown && undoBar.wide && undoBar.height >= 44 && undoBar.bottom <= undoBar.tabs, JSON.stringify(undoBar));
+    await phone.tap('#undo');
+    ok('a tap on Undo brings it back', await until(async () => (await fbNow()).custom.length === 1));
+    await phone.waitForSelector('#custom .delete', { visible: true });
+    await phone.evaluate(() => { UNDO_MS = 500; });
+    await phone.tap('#custom .delete');
+    ok('left alone, Undo goes and the rule stays deleted', await until(() => phone.$eval('#undo', b => !b.hidden)) &&
+      await until(() => phone.$eval('#undo', b => b.hidden)) && (await fbNow()).custom.length === 0);
+    await phone.close();
 
     await popup.click('.tab[data-view="more"]');
     await popup.click('#placeholdersRow .line-text');

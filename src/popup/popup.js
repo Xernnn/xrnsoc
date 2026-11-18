@@ -34,6 +34,7 @@ var el = {
   reset: document.getElementById('reset'),
   pick: document.getElementById('pick'),
   pickLabel: document.getElementById('pickLabel'),
+  undo: document.getElementById('undo'),
   wordsPip: document.getElementById('wordsPip'),
   pickedPip: document.getElementById('pickedPip')
 };
@@ -527,16 +528,61 @@ function renderCustom() {
     del.title = 'Delete';
     del.setAttribute('aria-label', 'Delete ' + (rule.label || 'picked element'));
     del.appendChild(icon(CLOSE, 16));
-    del.addEventListener('click', function () {
-      mutateSite(function (m) {
-        m.custom = m.custom.filter(function (r) { return r.id !== rule.id; });
-      });
-    });
+    del.addEventListener('click', function () { deleteRule(rule.id); });
     row.appendChild(del);
 
     el.custom.appendChild(row);
   });
 }
+
+/* A picked rule deleted goes at once, and Undo brings it back as it was, in
+ * its place in the list. Deletes in a row are undone the latest first, each
+ * press one, while the bar is up: it goes UNDO_MS after the last delete or
+ * undo, and takes what is left with it. */
+var UNDO_MS = 5000;
+var undoable = [];        // { site, rule, index }, the latest last
+var undoTimer = null;
+
+function showUndo() {
+  clearTimeout(undoTimer);
+  el.undo.hidden = !undoable.length;
+  if (!undoable.length) return;
+  undoTimer = setTimeout(function () {
+    undoable = [];
+    el.undo.hidden = true;
+  }, UNDO_MS);
+}
+
+function deleteRule(ruleId) {
+  var id = siteId;
+  var gone = null;
+  mutate(function (s) {
+    var mine = store.site(s, id);
+    mine.custom.forEach(function (r, i) {
+      if (r.id === ruleId) gone = { site: id, rule: r, index: i };
+    });
+    if (gone) mine.custom.splice(gone.index, 1);
+  }).then(function () {
+    if (!gone || notSaved) return;
+    undoable.push(gone);
+    showUndo();
+  });
+}
+
+el.undo.addEventListener('click', function () {
+  var last = undoable.pop();
+  showUndo();
+  if (!last) return;
+  mutate(function (s) {
+    var mine = store.site(s, last.site);
+    if (mine.custom.some(function (r) { return r.id === last.rule.id; })) return;
+    mine.custom.splice(Math.min(last.index, mine.custom.length), 0, last.rule);
+  }).then(function () {
+    if (!notSaved) return;
+    undoable.push(last);
+    showUndo();
+  });
+});
 
 /* --------------------------------------------------------------- shell -- */
 

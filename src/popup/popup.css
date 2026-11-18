@@ -348,6 +348,20 @@ button.line:hover { background: var(--surface); }
 }
 .delete:hover { color: var(--accent-text); }
 .empty { padding: 40px 24px; color: var(--dim); text-align: center; }
+/* Brings back the picked rule just deleted, for a few seconds. */
+.undo {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 52px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--accent-text);
+  font-weight: 650;
+}
+.undo:hover { background: var(--line); }
 
 /* --------------------------------------------------------------- footer -- */
 .foot {
