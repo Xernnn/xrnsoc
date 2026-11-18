@@ -28,17 +28,18 @@
   store.get().then(applyState);
   store.onChange(applyState);
 
-  /* Every supported site is a single-page app: the path changes with no page
-   * load, which matters for custom rules scoped to one page. Patching
+  /* Every supported site is a single-page app: the address changes with no
+   * page load, which matters for custom rules scoped to one page and for
+   * rules that read the address (X's People tabs are ?f=user). Patching
    * history.pushState would not help — a content script runs in its own JS
    * world and never sees the page's own calls — so watch the URL instead.
    * Once a second, one string comparison. */
-  var lastPath = location.pathname;
+  var lastPath = location.pathname + location.search;
   function onRoute() {
-    if (location.pathname === lastPath) return;
-    lastPath = location.pathname;
+    if (location.pathname + location.search === lastPath) return;
+    lastPath = location.pathname + location.search;
     guardRoute();
-    engine.refresh();
+    engine.route();
   }
   setInterval(onRoute, 1000);
   window.addEventListener('popstate', function () { setTimeout(onRoute, 0); });
@@ -59,6 +60,7 @@
           hidden: engine.hiddenCount(),
           stats: engine.stats(),
           picking: picker.isActive(),
+          said: picker.said(),
           path: location.pathname
         });
         break;

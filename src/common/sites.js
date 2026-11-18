@@ -9,12 +9,15 @@
 
   /* Every site, in popup order. A hostname belongs to a site when it is one
    * of its hosts or a subdomain of one, or, for a site marked `exact`, when
-   * it is one of its hosts. Facebook's other subdomains are other apps (Ads
-   * Manager, Business Suite, the developer pages), whose cards say "Ad" and
-   * "Sponsored" as well. */
+   * it is one of its hosts or matches its `pattern`. Facebook's other
+   * subdomains are other apps (Ads Manager, Business Suite, the developer
+   * pages), whose cards say "Ad" and "Sponsored" as well; its language
+   * addresses (vi-vn.facebook.com) and older phone ones are Facebook. */
   var SITES = [
     { id: 'facebook', name: 'Facebook', exact: true,
-      hosts: ['facebook.com', 'www.facebook.com', 'web.facebook.com', 'm.facebook.com', 'messenger.com', 'www.messenger.com'] },
+      hosts: ['facebook.com', 'www.facebook.com', 'web.facebook.com', 'm.facebook.com', 'mbasic.facebook.com',
+        'touch.facebook.com', 'mobile.facebook.com', 'messenger.com', 'www.messenger.com'],
+      pattern: /^[a-z]{2,3}-[a-z]{2}\.facebook\.com$/ },
     { id: 'reddit', name: 'Reddit', hosts: ['reddit.com'] },
     { id: 'x', name: 'X', hosts: ['x.com', 'twitter.com'] },
     { id: 'linkedin', name: 'LinkedIn', hosts: ['linkedin.com'] },
@@ -41,6 +44,7 @@
         var h = SITES[i].hosts[j];
         if (host === h || (!SITES[i].exact && host.slice(-h.length - 1) === '.' + h)) return SITES[i].id;
       }
+      if (SITES[i].pattern && SITES[i].pattern.test(host)) return SITES[i].id;
     }
     return null;
   }
@@ -94,7 +98,6 @@
         id: 'grayscale',
         group: 'Effects',
         label: 'Black & white',
-        desc: 'The whole page in greyscale — pictures, videos, avatars, everything — and it stays grey when you hover.',
         style: 'html { filter: grayscale(1) !important; }'
       };
     },
@@ -106,7 +109,6 @@
         id: 'blurFeed',
         group: 'Effects',
         label: 'Blur posts',
-        desc: 'Stops passive scrolling dead. You have to choose to read something.',
         style: post + ':not([data-bfx-note]) { filter: blur(5px); transition: filter .15s ease; }' +
           post + ':hover { filter: none; }'
       };
@@ -114,12 +116,11 @@
 
     /* No selector: the engine pauses any video that starts without a click
      * or key press just before it. */
-    noAutoplay: function (group, desc) {
+    noAutoplay: function (group) {
       return {
         id: 'noAutoplay',
         group: group,
         label: 'Stop autoplay',
-        desc: desc || 'Videos stay paused while you scroll past. Click one and it plays as normal.',
         behavior: true
       };
     }

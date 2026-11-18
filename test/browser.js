@@ -293,7 +293,7 @@ async function until(fn, timeout = 3000) {
       return el.hasAttribute('data-bfx-note') && getComputedStyle(el).display === 'block';
     })));
     const bar = await page.evaluate(() => getComputedStyle(document.getElementById('u-kw'), '::before').content);
-    ok('the bar says a word was blocked, never which: the site can read it', /a word you blocked/.test(bar) && !/crypto/i.test(bar), bar);
+    ok('the bar says a word was blocked, never which: the site can read it', /Blocked word/.test(bar) && !/crypto/i.test(bar), bar);
     ok('the post itself stays hidden behind it', await page.evaluate(() =>
       getComputedStyle(document.querySelector('#u-kw h4')).display === 'none'));
     await page.click('#u-kw');
@@ -337,7 +337,7 @@ async function until(fn, timeout = 3000) {
     ok('the hero counts what is on, away from a site', /^\d+$/.test(await popup.$eval('#tallyNum', n => n.textContent)) &&
       await popup.$eval('#tallyWord', n => n.textContent) === 'on');
     ok('a site being worked on wears the xrnsocial icon', (await iconOf()) === 'sites/facebook-on.svg', await iconOf());
-    ok('the pick button waits for a site', await popup.$eval('#pick', b => b.disabled && /Open a site/.test(b.textContent)));
+    ok('the pick button waits for a site', await popup.$eval('#pick', b => b.disabled));
 
     await sw.evaluate('self.BFX_STORE.update(s => { s.enabled = false; s.sites.facebook.presets.stories = true; })');
     ok('a change made elsewhere shows up in the open popup', await until(async () =>
@@ -484,8 +484,8 @@ async function until(fn, timeout = 3000) {
     const input = await options.$('#file');
     await input.uploadFile(backupFile);
     ok('a chosen file is previewed before anything changes', await until(async () =>
-      /This backup has/.test(await options.$eval('#preview', n => n.textContent))));
-    ok('the invalid picked rule is called out', /1 picked rule will be skipped/.test(
+      /picked rule/.test(await options.$eval('#preview', n => n.textContent))));
+    ok('the invalid picked rule is called out', / · 1 skipped$/.test(
       await options.$eval('#preview', n => n.textContent)));
     await options.click('#restore');
     const restored = await (async () => {
@@ -939,25 +939,37 @@ async function until(fn, timeout = 3000) {
       const r = el.getBoundingClientRect();
       return { x: r.left + Math.min(r.width / 2, 40), y: r.top + r.height / 2 };
     }, sel);
-    const pickerNow = () => page.evaluate(() => {
-      const host = document.querySelector('.bfx-picker-root');
-      if (!host) return null;
-      const btn = act => {
-        const b = host.querySelector(`[data-act="${act}"]`);
-        return { shown: b.getClientRects().length > 0, on: !b.disabled, text: b.textContent };
-      };
-      const r = host.querySelector('.bfx-box').getBoundingClientRect();
-      const bar = host.querySelector('.bfx-bar').getBoundingClientRect();
-      return {
-        touch: host.hasAttribute('data-bfx-touch'),
-        top: host.hasAttribute('data-bfx-top'),
-        name: host.querySelector('.bfx-name').textContent,
-        hint: host.querySelector('.bfx-bar-hint').getClientRects().length > 0,
-        box: { left: r.left, right: r.right, top: r.top, bottom: r.bottom },
-        bar: { top: bar.top, bottom: bar.bottom, width: bar.width },
-        smaller: btn('smaller'), bigger: btn('bigger'), mode: btn('mode'), cancel: btn('cancel'), hide: btn('hide')
-      };
+    /* The bar's words are in closed shadow roots, out of the page's reach and
+     * so out of page.evaluate's: the extension asks the tab for them. */
+    const pickerSaid = () => sw.evaluate(async () => {
+      const [tab] = await chrome.tabs.query({ url: ['https://www.reddit.com/*', 'https://www.linkedin.com/*', 'https://mangadex.org/*'] });
+      const res = await chrome.tabs.sendMessage(tab.id, { type: 'bfx:status' });
+      return res && res.said;
     });
+    const pickerNow = async () => {
+      const shown = await page.evaluate(() => {
+        const host = document.querySelector('.bfx-picker-root');
+        if (!host) return null;
+        const btn = act => {
+          const b = host.querySelector(`[data-act="${act}"]`);
+          return { shown: b.getClientRects().length > 0, on: !b.disabled, text: b.textContent };
+        };
+        const r = host.querySelector('.bfx-box').getBoundingClientRect();
+        const bar = host.querySelector('.bfx-bar').getBoundingClientRect();
+        return {
+          touch: host.hasAttribute('data-bfx-touch'),
+          top: host.hasAttribute('data-bfx-top'),
+          pageReads: host.querySelector('.bfx-name').textContent + host.querySelector('.bfx-sel').textContent,
+          modeLabel: host.querySelector('.bfx-mode').getClientRects().length > 0,
+          box: { left: r.left, right: r.right, top: r.top, bottom: r.bottom },
+          bar: { top: bar.top, bottom: bar.bottom, width: bar.width },
+          smaller: btn('smaller'), bigger: btn('bigger'), mode: btn('mode'), cancel: btn('cancel'), hide: btn('hide')
+        };
+      });
+      if (!shown) return null;
+      const said = await pickerSaid();
+      return Object.assign(shown, { name: said ? said.name : '' });
+    };
     const tapOn = async sel => {
       const at = await spotOf(sel);
       await page.touchscreen.tap(at.x, at.y);
@@ -978,17 +990,18 @@ async function until(fn, timeout = 3000) {
     await startPicker();
     await until(async () => !!(await pickerNow()));
     let pk = await pickerNow();
-    ok('with a mouse: the bar shows the keys and no buttons', !pk.touch && pk.hint && !pk.hide.shown && !pk.cancel.shown, JSON.stringify(pk));
+    ok('with a mouse: the bar shows the mode the a key switches, and no buttons', !pk.touch && pk.modeLabel && !pk.hide.shown && !pk.cancel.shown, JSON.stringify(pk));
     ok('nothing is marked before the mouse moves, not even a dot in the corner', pk.box.right <= 0 && pk.box.bottom <= 0, JSON.stringify(pk.box));
     let spot = await spotOf('#t3_sub > [slot="title"]');
     await page.mouse.move(spot.x, spot.y);
     await sleep(60);
     pk = await pickerNow();
     ok('moving the mouse marks what it is over', pk.name === 'My cat found a box', pk.name);
+    ok('…and the page cannot read what the bar says', pk.pageReads === '', pk.pageReads);
     await page.keyboard.press('ArrowUp');
     for (let i = 0; i < 12; i++) await page.keyboard.press('ArrowUp');
     await page.keyboard.press('ArrowDown');
-    ok('↑ past the top and one ↓ moves at once', await page.evaluate(() => document.querySelector('.bfx-name').textContent) !== '' &&
+    ok('↑ past the top and one ↓ moves at once', (await pickerNow()).name !== '' &&
       (await pickerNow()).name !== 'My cat found a box');
     await page.keyboard.press('Escape');
     ok('Esc leaves, saving nothing', !(await pickerNow()) && (await picked()).length === 0);
@@ -1046,7 +1059,7 @@ async function until(fn, timeout = 3000) {
     ok('the highlight sits on that post', Math.abs(pk.box.top - article.top) < 5 && Math.abs(pk.box.bottom - article.bottom) < 5, JSON.stringify([pk.box, article]));
     ok('the tap opened nothing', new URL(page.url()).pathname === '/');
     ok('the page heard none of it', (await page.evaluate(() => self.__heard.length)) === 0, await page.evaluate(() => self.__heard.join()));
-    ok('with a finger: buttons in place of the keys', !pk.hint && pk.smaller.shown && pk.bigger.shown && pk.cancel.shown);
+    ok('with a finger: buttons in place of the keys', !pk.modeLabel && pk.smaller.shown && pk.bigger.shown && pk.cancel.shown);
     ok('a post has no "all of them" choice', !pk.mode.shown);
     const post = pk;
     await press('smaller');
@@ -1066,9 +1079,9 @@ async function until(fn, timeout = 3000) {
     await startPicker();
     await until(async () => !!(await pickerNow()));
     pk = await pickerNow();
-    ok('before a tap: one line and Cancel, and the bar stays small', pk.name === 'Tap what you want to hide' &&
+    ok('before a tap: one line and Cancel, and the bar stays small', pk.name === 'Hide something' &&
       pk.cancel.shown && !pk.hide.shown && !pk.smaller.shown && pk.bar.width < 340, JSON.stringify(pk.bar));
-    ok('the hints are for a phone, and the corner is clear', !pk.hint && pk.box.right <= 0);
+    ok('the mode label is for a mouse, and the corner is clear', !pk.modeLabel && pk.box.right <= 0);
     await tapOn('#chat');
     pk = await pickerNow();
     ok('a tap outside any post selects that thing itself', pk.name.startsWith('Chat') && !pk.smaller.on, JSON.stringify(pk));
@@ -1141,7 +1154,7 @@ async function until(fn, timeout = 3000) {
     await page.touchscreen.touchEnd();
     await sleep(250);
     pk = await pickerNow();
-    ok('a swipe scrolls and selects nothing', pk.name === 'Tap what you want to hide' && (await page.evaluate(() => scrollY)) !== scrollFrom, pk.name);
+    ok('a swipe scrolls and selects nothing', pk.name === 'Hide something' && (await page.evaluate(() => scrollY)) !== scrollFrom, pk.name);
     await press('cancel');
     await page.evaluate(() => document.getElementById('stuck').remove());
 

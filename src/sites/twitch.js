@@ -29,7 +29,6 @@
       group: 'Ads',
       on: true,
       label: 'Display ads',
-      desc: 'The ad in the front page\'s featured carousel, and the display ad beside the player during an ad break. Video ads are part of the stream and can\'t be hidden.',
       css: ['[data-a-target="frontpage-headliner"]', '[data-test-selector="sda-wrapper"]']
     },
     {
@@ -37,7 +36,6 @@
       group: 'Ads',
       on: true,
       label: 'Prime and Bits',
-      desc: 'The Prime offers crown and the "Get Bits" sale button in the top bar.',
       css: [
         '[data-test-selector="test_selector_prime_tracking_button_wrapper"]',
         '[data-a-target="prime-offers-icon"]',
@@ -51,28 +49,24 @@
       group: 'Side nav',
       on: true,
       label: 'Recommended',
-      desc: 'The "Live channels" Twitch suggests in the side nav. Channels you follow stay.',
       css: [SIDE_NAV + ' [role="group"]:has([data-test-selector="recommended-channel"])', '[data-test-selector="recommended-channel"]']
     },
     {
       id: 'similarChannels',
       group: 'Side nav',
       label: 'Also watch',
-      desc: 'Channels similar to the one you are watching, in the side nav.',
       css: [SIDE_NAV + ' [role="group"]:has([data-test-selector="similarity-channel"])', '[data-test-selector="similarity-channel"]']
     },
     {
       id: 'sideNav',
       group: 'Side nav',
       label: 'Whole side nav',
-      desc: 'Followed, recommended and similar channels — all of it.',
       css: [SIDE_NAV, '[data-a-target="side-nav-bar"]']
     },
     {
       id: 'featuredCarousel',
       group: 'Front page',
       label: 'Featured carousel',
-      desc: 'The autoplaying featured streams at the top of the front page.',
       css: ['[data-a-target="front-page-carousel"]']
     },
 
@@ -81,35 +75,30 @@
       id: 'chat',
       group: 'Watching',
       label: 'Chat',
-      desc: 'The whole chat column beside a stream.',
       css: ['.channel-root__right-column']
     },
     {
       id: 'chatBadges',
       group: 'Watching',
       label: 'Chat badges',
-      desc: 'Subscriber, bits and other badges before names in chat.',
       css: ['[data-a-target="chat-badge"]', '.chat-badge']
     },
     {
       id: 'channelPoints',
       group: 'Watching',
       label: 'Channel points',
-      desc: 'The points balance and the claim button under chat.',
       css: ['[data-test-selector="community-points-summary"]']
     },
     {
       id: 'subGift',
       group: 'Watching',
       label: 'Sub and Gift',
-      desc: 'The upsell buttons under a stream. Follow stays.',
       css: ['[data-a-target="subscribe-button"]', '[data-a-target="gift-button"]']
     },
     {
       id: 'aboutPanels',
       group: 'Watching',
       label: 'About panels',
-      desc: 'The channel\'s panels below the stream.',
       css: ['[data-a-target="about-panel"]']
     },
 
@@ -119,7 +108,6 @@
       group: 'Top bar',
       on: true,
       label: 'Badges',
-      desc: 'The count on the notifications bell, and in the tab title.',
       css: ['[data-test-selector="onsite-notifications__badge"]'],
       js: { kind: 'badges' }
     },

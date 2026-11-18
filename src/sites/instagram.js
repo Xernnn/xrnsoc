@@ -33,7 +33,6 @@
       group: 'Ads',
       on: true,
       label: 'Sponsored posts',
-      desc: 'Ads in the feed: the posts that show "Ad" where others show when they were posted.',
       css: [POST + ':has(a[href*="/ads/ig_redirect/"])'],
       js: { kind: 'sponsored' }
     },
@@ -44,7 +43,6 @@
       group: 'Feed',
       on: true,
       label: 'Recommended Reels',
-      desc: 'Reels in the feed, the Reels tab and the next reels after one you open. A reel someone sends you still opens.',
       css: ['a[href="/reels/"]'],
       style: '[data-bfx-held] { overflow: hidden !important; }',
       js: { kind: 'reel' }
@@ -53,21 +51,18 @@
       id: 'suggested',
       group: 'Feed',
       label: "Strangers' posts",
-      desc: '"Suggested for you" and everything else with a Follow button on it. Often most of the feed once you have seen your follows.',
       js: { kind: 'suggested' }
     },
     {
       id: 'videoPosts',
       group: 'Feed',
       label: 'All videos',
-      desc: 'Every post with a video in it — the whole post, not just the player.',
       css: [POST + ':has(video)']
     },
     {
       id: 'stories',
       group: 'Feed',
       label: 'Stories',
-      desc: 'The row of stories above the feed.'
     },
 
     /* --------------------------------------------------------- posts ---- */
@@ -75,24 +70,21 @@
       id: 'postActions',
       group: 'Posts',
       label: 'Action bar',
-      desc: 'The row of buttons under every post.',
       css: [POST + ' div > section:first-of-type']
     },
     {
       id: 'counts',
       group: 'Posts',
       label: 'Counts',
-      desc: 'The numbers beside the buttons and the "Liked by …" line, not the buttons.',
       css: [POST + ' div > section:first-of-type span[role="button"]', POST + ' div > section:nth-of-type(2)']
     },
-    SITES.common.noAutoplay('Posts', 'Videos in the feed stay paused while you scroll past. Click one and it plays as normal.'),
+    SITES.common.noAutoplay('Posts'),
 
     /* ------------------------------------------------------ sidebars ---- */
     {
       id: 'rightSidebar',
       group: 'Sidebars',
       label: 'Right column',
-      desc: 'Your account, "Suggested for you" and the footer beside the feed.'
     },
 
     /* -------------------------------------------------------- badges ---- */
@@ -101,14 +93,12 @@
       group: 'Menu',
       on: true,
       label: 'Red badges',
-      desc: 'The counts and dots on Messages and Notifications, and in the tab title.',
       js: { kind: 'badges' }
     },
     {
       id: 'threadsLink',
       group: 'Menu',
       label: 'Threads links',
-      desc: 'Meta\'s cross-promotion in the menu.',
       css: ['a[href^="https://www.threads.com"]', 'a[href^="https://www.threads.net"]']
     },
 
@@ -263,6 +253,10 @@
     keepReel(box, api);
   }
 
+  function inMessages() {
+    return location.pathname.indexOf('/direct/') === 0;
+  }
+
   /* --------------------------------------------------------- picker ---- */
 
   /* Picking a post means "posts from this account", keyed on the header's
@@ -303,7 +297,10 @@
     },
     /* Messages are left alone: a reel or a word in a chat is yours to see. */
     skip: function (unit) {
-      return location.pathname.indexOf('/direct/') === 0 || !!unit.closest('[role="dialog"]');
+      return inMessages() || !!unit.closest('[role="dialog"]');
+    },
+    pageKey: function () {
+      return inMessages() ? 'messages' : '';
     },
     picker: {
       authorOf: authorOf,

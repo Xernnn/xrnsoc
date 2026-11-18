@@ -48,15 +48,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.bfx-bar-hint { margin-top: 6px; font-size: 11.5px; color: #9aa0a6; }
-.bfx-bar-hint b {
-  color: #e7e9ea;
-  background: #2a2d33;
-  border-radius: 4px;
-  padding: 1px 5px;
-  font-weight: 600;
-}
-.bfx-warn:empty { display: none; }
+.bfx-mode { flex: none; font-size: 11.5px; color: #9aa0a6; white-space: nowrap; }
+/* Its words are in a shadow root, so it always looks :empty; the level says. */
+.bfx-warn:not([data-level]), .bfx-warn[data-level=""] { display: none; }
 .bfx-warn {
   margin-top: 7px;
   padding-top: 7px;
@@ -65,12 +59,11 @@
   color: #f7c948;
 }
 .bfx-warn[data-level="bad"] { color: #ff8080; }
-.bfx-warn[data-level="info"] { color: #9aa0a6; }
 
 /* By finger: a tap selects, and the bar holds what the keys do on a computer.
  * While nothing is chosen it stays small, so what lies under it is in reach. */
 .bfx-touch { display: none; }
-[data-bfx-touch] .bfx-sel, [data-bfx-touch] .bfx-bar-hint { display: none; }
+[data-bfx-touch] .bfx-sel, [data-bfx-touch] .bfx-mode { display: none; }
 [data-bfx-touch] .bfx-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 [data-bfx-touch] .bfx-warn { font-size: 13px; }
 [data-bfx-touch] .bfx-bar {

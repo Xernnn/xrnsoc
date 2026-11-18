@@ -21,7 +21,9 @@ Nothing leaves your browser: no network requests, no analytics, no accounts.
   turn the whole group off and on in one go: it remembers what you had on.
   Changes apply at once to every open tab, with no reload.
 - **Picker.** Press `Alt+Shift+H` (or use the popup) and click anything to
-  hide it. On a phone, tap it, adjust with Smaller and Bigger, then tap Hide.
+  hide it. `↑` and `↓` take the part around it or inside it, `a` switches
+  between all like it and only this one, and `Esc` cancels. On a phone, tap
+  it, adjust with Smaller and Bigger, then tap Hide.
   Picking a whole post hides posts from that author, page or community.
 - **Word blocks.** Hide posts containing a word, or a `/regex/i`. A pattern
   reads the first 1,000 characters of a post, and one that could freeze the

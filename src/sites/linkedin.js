@@ -59,7 +59,6 @@
       group: 'Ads',
       on: true,
       label: 'Promoted posts',
-      desc: 'Ads in the feed, and promoted cards in the right column.',
       css: [ITEM + ':has([aria-label="View Sponsored Content"])', ITEM + ':has(a[href*="li_fat_id="])'],
       js: { kind: 'promoted' }
     },
@@ -68,7 +67,6 @@
       group: 'Ads',
       on: true,
       label: 'Premium offers',
-      desc: 'Premium offers in the feed, the left column and the top bar.',
       css: [ITEM + ':has(' + PREMIUM_LINK + ')', 'header a[href*="/premium/"]']
     },
 
@@ -77,35 +75,30 @@
       id: 'suggested',
       group: 'Feed',
       label: "Strangers' posts",
-      desc: 'Posts with a Follow button on them: LinkedIn\'s picks, and posts shown because someone you know reacted. Often most of the feed.',
       js: { kind: 'suggested' }
     },
     {
       id: 'activity',
       group: 'Feed',
       label: 'Activity posts',
-      desc: '"X likes this", "X commented", "Followed by X": posts in your feed only because of someone else\'s activity.',
       js: { kind: 'activity' }
     },
     {
       id: 'jobs',
       group: 'Feed',
       label: 'Job picks',
-      desc: 'The jobs carousel in the feed.',
       css: [ITEM + ':has([data-testid="carousel"]):has(a[href*="/jobs/"])']
     },
     {
       id: 'videoPosts',
       group: 'Feed',
       label: 'All videos',
-      desc: 'Every post with a video in it — the whole post, not just the player.',
       css: [ITEM + ':has(video)']
     },
     {
       id: 'composer',
       group: 'Feed',
       label: 'Post box',
-      desc: 'The post box at the top of the feed.',
       css: [ITEM + ':has(a[href*="/article/new/"])']
     },
 
@@ -114,28 +107,24 @@
       id: 'postActions',
       group: 'Posts',
       label: 'Action bar',
-      desc: 'The row of buttons under every post.',
       css: [SECTION + ':has(button ' + COMMENT + ', button ' + REPOST + ')']
     },
     {
       id: 'counts',
       group: 'Posts',
       label: 'Counts',
-      desc: 'The "275 reactions · 28 comments" line under posts.',
       css: [SECTION + ':has(ul[role="presentation"]):not(:has(button ' + LIKE + '))']
     },
     {
       id: 'comments',
       group: 'Posts',
       label: 'Comments',
-      desc: 'The comments that open beneath a post in the feed.',
       css: ['[data-testid*="commentList"]']
     },
     {
       id: 'media',
       group: 'Posts',
       label: 'Images & video',
-      desc: 'Keeps the text, drops pictures, videos and documents.',
       /* Not the parts with small pictures of people: the header and the
        * activity line (both hold the menu), the author block after an
        * activity line's rule, the counts. */
@@ -153,34 +142,30 @@
         ITEM + ' h2 ~ a:has(> figure img)'
       ]
     },
-    SITES.common.noAutoplay('Posts', 'Videos in the feed stay paused while you scroll past. Click one and it plays as normal.'),
+    SITES.common.noAutoplay('Posts'),
 
     /* ------------------------------------------------------ sidebars ---- */
     {
       id: 'leftSidebar',
       group: 'Sidebars',
       label: 'Left',
-      desc: 'Your profile card, its stats, saved items, groups and events.',
       css: [LEFT_RAIL]
     },
     {
       id: 'rightSidebar',
       group: 'Sidebars',
       label: 'Right',
-      desc: 'News, puzzles and the footer — all of it.',
       css: [RIGHT_RAIL]
     },
     {
       id: 'news',
       group: 'Sidebars',
       label: 'News',
-      desc: 'The top stories in the right column.'
     },
     {
       id: 'games',
       group: 'Sidebars',
       label: 'Games',
-      desc: 'LinkedIn\'s games in the right column.',
       css: ['[componentkey="feedRightNavGamesComponentRef"]']
     },
 
@@ -190,7 +175,6 @@
       group: 'Top bar',
       on: true,
       label: 'Red badges',
-      desc: 'The counts on Messaging, Notifications and the rest, and in the tab title.',
       js: { kind: 'badges' }
     },
 

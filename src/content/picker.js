@@ -290,6 +290,17 @@
 
   /* --------------------------------------------------------------- ui -- */
 
+  /* What the bar says names what is being picked ("Posts from Dana") and
+   * the rule that would hide it, which is not the site's business. As with
+   * the toast, those words sit in closed shadow roots, which the page's
+   * scripts cannot open; the extension reads them back with said(). */
+  var TEXTS = ['name', 'sel', 'mode', 'warn'];
+
+  function say(part, text) {
+    ui.said[part] = text;
+    ui.voices[part].textContent = text;
+  }
+
   function buildUi() {
     var host = document.createElement('div');
     host.className = 'bfx-picker-root';
@@ -299,11 +310,8 @@
         '<div class="bfx-bar-main">' +
           '<span class="bfx-dot"></span>' +
           '<span class="bfx-name"></span>' +
-          '<code class="bfx-sel"></code>' +
-        '</div>' +
-        '<div class="bfx-bar-hint">' +
-          '<b>click</b> hide &nbsp; <b>↑↓</b> select parent / child &nbsp; ' +
-          '<b>a</b> <span class="bfx-mode"></span> &nbsp; <b>esc</b> cancel' +
+          '<span class="bfx-sel"></span>' +
+          '<span class="bfx-mode"></span>' +
         '</div>' +
         '<div class="bfx-warn"></div>' +
         '<div class="bfx-touch">' +
@@ -321,14 +329,19 @@
     document.documentElement.appendChild(host);
     LISTEN.concat(TOUCHES).forEach(function (type) { host.addEventListener(type, onBar); });
     var act = function (name) { return host.querySelector('[data-act="' + name + '"]'); };
+    var voices = {};
+    var said = {};
+    TEXTS.forEach(function (part) {
+      voices[part] = host.querySelector('.bfx-' + part).attachShadow({ mode: 'closed' });
+      said[part] = '';
+    });
     return {
       host: host,
       bar: host.querySelector('.bfx-bar'),
       box: host.querySelector('.bfx-box'),
-      name: host.querySelector('.bfx-name'),
-      sel: host.querySelector('.bfx-sel'),
-      mode: host.querySelector('.bfx-mode'),
       warn: host.querySelector('.bfx-warn'),
+      voices: voices,
+      said: said,
       adjust: host.querySelector('.bfx-adjust'),
       smaller: act('smaller'),
       bigger: act('bigger'),
@@ -362,8 +375,8 @@
     } else {
       ui.host.removeAttribute('data-bfx-chosen');
       ui.box.removeAttribute('style');
-      ui.name.textContent = 'Tap what you want to hide';
-      ui.warn.textContent = '';
+      say('name', 'Hide something');
+      say('warn', '');
       ui.warn.dataset.level = '';
     }
   }
@@ -383,29 +396,25 @@
     box.height = rect.height + 'px';
 
     var built = builtFor(target);
-    ui.name.textContent = describe(target);
-    ui.sel.textContent = built.selector || '(no stable selector)';
-    ui.mode.textContent = built.author
-      ? 'every post from ' + built.author
-      : useBroad ? 'all ' + built.count + ' like it' : 'only this one';
+    say('name', describe(target));
+    say('sel', built.selector || '(no stable selector)');
+    /* What the a key switches between; a post's author has nothing to switch. */
+    say('mode', built.author ? '' : useBroad ? 'All ' + built.count : 'Only this');
 
     var inFeed = !!(site() && site().units && target.closest(site().units));
     if (!built.valid) {
-      ui.warn.textContent = 'No selector matches this element — ' + (touch ? 'tap Bigger.' : 'try ↑ for its parent.');
+      say('warn', 'No selector');
       ui.warn.dataset.level = 'bad';
-    } else if (built.author) {
-      ui.warn.textContent = 'Hides every post from ' + built.author + ', wherever it shows up.';
-      ui.warn.dataset.level = 'info';
     } else if (inFeed && !built.broad) {
-      var info = root.BFX_SITES && root.BFX_SITES.info(site().id);
-      ui.warn.textContent = 'This lives inside the feed, which ' + (info ? info.name : 'the site') +
-        ' rebuilds constantly. A keyword block will outlast this rule.';
+      /* The site rebuilds its feed constantly: a rule for a part of it with
+       * no stable hook stops matching soon. */
+      say('warn', 'Inside the feed: won\'t last');
       ui.warn.dataset.level = 'warn';
     } else if (built.count > 8) {
-      ui.warn.textContent = 'Hides ' + built.count + ' elements on this page.' + (touch ? '' : ' Press a to narrow it to one.');
+      say('warn', built.count + ' matches');
       ui.warn.dataset.level = 'warn';
     } else {
-      ui.warn.textContent = '';
+      say('warn', '');
       ui.warn.dataset.level = '';
     }
   }
@@ -616,8 +625,10 @@
       root.BFX_STORE.site(s, siteId).custom.push(rule);
       return s;
     }).then(function () {
-      toast('Hidden “' + rule.label + '” — undo from the xrnsocial popup');
+      toast('Hidden “' + rule.label + '”');
       if (onDone) onDone(rule);
+    }, function () {
+      toast('Not saved');
     });
   }
 
@@ -674,6 +685,8 @@
     selectorFor: buildSelector,   /* exported for tests */
     stop: stop,
     toast: toast,
-    isActive: function () { return active; }
+    isActive: function () { return active; },
+    /* What the bar says, for the extension: the page cannot read it. */
+    said: function () { return ui ? Object.assign({}, ui.said) : null; }
   };
 })(typeof self !== 'undefined' ? self : this);

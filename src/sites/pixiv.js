@@ -40,7 +40,6 @@
       group: 'Ads',
       on: true,
       label: 'Ads',
-      desc: 'Every ad box, on computers and phones, including the sticky ad at the bottom of the screen on phones.',
       css: [
         FRAME,
         'div:has(> div > ' + FRAME + ')' + ONLY_THE_AD,
@@ -60,7 +59,6 @@
       group: 'Ads',
       on: true,
       label: 'Premium offers',
-      desc: 'pixiv Premium banners and links, including "Remove ads".',
       css: [
         'a[href^="/premium/lead/lp/"]',
         /* The tag page's offer sits over a box of its own. On a user's page
@@ -77,7 +75,6 @@
       id: 'related',
       group: 'Works',
       label: 'Related works',
-      desc: 'The endless grid of suggestions below a work.',
       css: [
         'section:has(> .gtm-illust-recommend-zone)',
         '.ad-overlay-hide-area'

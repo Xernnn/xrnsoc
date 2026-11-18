@@ -469,9 +469,18 @@ console.log('\nwhat the page can read');
   ok('posts hidden by blocked words carry no word: not even a pattern', $$('u-kw').getAttribute('data-bfx-hidden-by') === 'keyword' &&
     $$('u-organic').getAttribute('data-bfx-hidden-by') === 'keyword' && !/crypto/i.test(readable(w).replace(/Buy CRYPTO now/g, '')) &&
     !readable(w).includes('/lake'), [$$('u-kw').getAttribute('data-bfx-note'), $$('u-organic').getAttribute('data-bfx-note')].join(' | '));
-  w.BFX_PICKER.toast('Hidden \u201cPosts from Dana Example\u201d \u2014 undo from the xrnsocial popup');
+  w.BFX_PICKER.toast('Hidden \u201cPosts from Dana Example\u201d');
   ok('the toast that confirms a pick keeps its words out of the page\'s reach',
     !!w.document.querySelector('.bfx-toast') && !readable(w).includes('Posts from Dana'), w.document.querySelector('.bfx-toast') && w.document.querySelector('.bfx-toast').outerHTML);
+  w.document.querySelector('.bfx-toast').remove();
+  w.BFX_PICKER.start();
+  userEvent($$('u-organic'), new w.MouseEvent('mousemove', { bubbles: true }));
+  ok('so does the picker\'s bar: whose posts, and the rule', !!w.document.querySelector('.bfx-picker-root') &&
+    !readable(w).includes('Posts from Dana') && !readable(w).includes(author),
+    w.document.querySelector('.bfx-picker-root').outerHTML);
+  const said = w.BFX_PICKER.said ? w.BFX_PICKER.said() : {};
+  ok('…which the extension still reads', said.name === 'Posts from Dana Example' && said.sel === author, JSON.stringify(said));
+  w.BFX_PICKER.stop();
   w.BFX_ENGINE.apply(settings(false));
   await frame();
   ok('turning the rule off takes its sheet back out', backgrounds.get(w).sheets.length === 0, JSON.stringify(backgrounds.get(w).sheets));
@@ -492,7 +501,18 @@ console.log('\na /regex/ word that could freeze the tab');
   const slow = ['/(a+)+$/', '/(a|aa)*b/', '/(\\w|\\d)+$/', '/(\\w+\\s?)*$/', '/(.*a){12}/', '/.*.*.*zq/', '/\\d+\\d*x/', '/.*o.*e.*zq/'];
   const missed = slow.filter(t => !S.slowPattern(body(t)));
   ok('nested repeats, repeated choices, and repeats that crowd each other are seen for what they are', !missed.length, missed.join(' '));
-  const fine = ['/give\\s?away/i', '/\\bcrypto\\b/i', '/crypto.*scam/', '/(?:crypto|nft)s?/i', '/\\d{3}-\\d{4}/', '/free\\s+money/', '/a+b+/', '/[^\\]]+x/'];
+  /* Each of these ran for seconds, or was killed after ten, over a post of
+   * 1,000 a's, and the guard let them all through: bounded repeats were not
+   * counted, and a group repeated around a ? was not a repeat inside a
+   * repeat. */
+  const bounded = ['/a{0,999}a{0,999}a{0,999}a{0,999}b/', '/(a?){40}a{40}b/', '/a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?a?b/',
+    '/.*a{0,10}.*zq/', '/.{0,10}a.{0,10}a.{0,10}a.{0,10}a.{0,10}zq/', '/.*a.{0,9}a.{0,9}a.{0,9}zq/', '/.{0,99}a.{0,99}b.{0,99}zq/'];
+  const letThrough = bounded.filter(t => !S.slowPattern(body(t)));
+  ok('bounded repeats count too: side by side, around a ? in a repeated group, or too many in all', !letThrough.length, letThrough.join(' '));
+  const restored = S.fromBackup({ keywords: { enabled: true, terms: bounded.slice(0, 2) } }).keywords.terms;
+  ok('…and a backup brings them back as plain words', JSON.stringify(restored) === JSON.stringify(bounded.slice(0, 2).map(body)), JSON.stringify(restored));
+  const fine = ['/give\\s?away/i', '/\\bcrypto\\b/i', '/crypto.*scam/', '/(?:crypto|nft)s?/i', '/\\d{3}-\\d{4}/', '/free\\s+money/', '/a+b+/', '/[^\\]]+x/',
+    '/colou?r/', '/\\d{1,2}\\/\\d{1,2}\\/\\d{2,4}/', '/(?:https?:\\/\\/)?\\w+/', '/\\d{1,3}(,\\d{3})*/', '/(trump|biden)s?/i'];
   const refused = fine.filter(t => S.slowPattern(body(t)));
   ok('ordinary patterns are not', !refused.length, refused.join(' '));
   ok('one of them is kept as the plain word between its slashes, the rest as typed',
@@ -522,16 +542,130 @@ console.log('\na /regex/ word that could freeze the tab');
   ok('…and the pattern doesn\'t, past its first thousand characters', !$$('u-video').hasAttribute('data-bfx-hidden-by'));
 }
 
+/* The shape check is no proof, so a pattern that still takes long over one
+ * post is read as a plain word for the rest of the page: one post's wait, not
+ * one per post. The clock here makes every test of a pattern look slow. */
+{
+  const w = boot(PAGE);
+  const S = w.BFX_STORE;
+  const words = (...more) => S.merge({ presets: Object.fromEntries(BFX_PRESETS.map(r => [r.id, false])),
+    keywords: { enabled: true, terms: ['/photo|giveaway/i'].concat(more) } });
+  const now = w.Date.now;
+  let slow = 0;
+  w.Date.now = function () { return now.call(w.Date) + (slow ? (slow += 200) : 0); };
+  slow = 1;
+  w.BFX_ENGINE.apply(words());
+  await frame();
+  const hid = ['u-ok', 'u-kw'].filter(id => w.document.getElementById(id).hasAttribute('data-bfx-hidden-by'));
+  ok('a pattern that takes too long over one post is not tried on the posts after it', !hid.length, 'still hid ' + hid.join(', '));
+  slow = 0;
+  w.BFX_ENGINE.apply(words('zzz'));
+  await frame();
+  ok('…nor after a settings change, on that page', !w.document.getElementById('u-kw').hasAttribute('data-bfx-hidden-by'));
+  const fresh = boot(PAGE);
+  fresh.BFX_ENGINE.apply(words());
+  await frame();
+  ok('…while on a page where it is quick it matches as usual', ['u-ok', 'u-kw'].every(id =>
+    fresh.document.getElementById(id).getAttribute('data-bfx-hidden-by') === 'keyword'));
+}
+
+/* Every change of settings, and every new address, showed everything hidden
+ * and judged every post again, in every open tab of every site: a switch
+ * flipped for Reddit did that on Facebook, and so did opening and closing a
+ * post. Each record here is something shown again, or hidden again. */
+console.log('\nwhat a change of settings or page redoes');
+{
+  const feed = fs.readFileSync(path.join(__dirname, 'fixtures/feed.html'), 'utf8');
+  const shownAgain = async (w, act) => {
+    const records = [];
+    const mo = new w.MutationObserver(list => records.push(...list));
+    mo.observe(w.document.documentElement, { subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['data-bfx-hidden-by'] });
+    await act();
+    await frame();
+    records.push(...mo.takeRecords());
+    mo.disconnect();
+    return records.filter(r => r.oldValue !== null).map(r => (r.target.id || r.target.tagName) + ':' + r.oldValue);
+  };
+  const copy = s => JSON.parse(JSON.stringify(s));
+  const w = boot(feed);
+  const S = w.BFX_STORE;
+  const by = id => w.document.getElementById(id).getAttribute('data-bfx-hidden-by');
+  const base = S.merge({ keywords: { enabled: true, terms: ['crypto'] } });
+  w.BFX_ENGINE.apply(base);
+  await frame();
+  const other = copy(base);
+  other.sites.reddit.presets.recommended = false;
+  const otherSite = await shownAgain(w, () => w.BFX_ENGINE.apply(other));
+  ok('a switch flipped for another site changes nothing here', by('u-ad') === 'sponsored' && !otherSite.length, otherSite.join(' '));
+  const picked = copy(other);
+  picked.sites.facebook.custom = [{ id: 'p1', selector: '[data-focus-target="stories"]', label: 'Stories', scope: 'all', path: '/', enabled: true }];
+  const pickedOnly = await shownAgain(w, () => w.BFX_ENGINE.apply(picked));
+  ok('a picked rule changes only its own sheet', !pickedOnly.length &&
+    backgrounds.get(w).sheets.some(css => css.includes('data-focus-target')), pickedOnly.join(' '));
+  const lake = copy(picked);
+  lake.keywords.terms = ['crypto', 'lake'];
+  const wordAdded = await shownAgain(w, () => w.BFX_ENGINE.apply(lake));
+  ok('a new word hides its posts and shows nothing hidden by a rule again',
+    by('u-organic') === 'keyword' && by('u-ad') === 'sponsored' && wordAdded.every(r => r.endsWith(':keyword')), wordAdded.join(' '));
+  const wordGone = await shownAgain(w, () => w.BFX_ENGINE.apply(picked));
+  ok('…and a word taken off brings back only its own posts', !by('u-organic') && by('u-kw') === 'keyword' &&
+    by('u-ad') === 'sponsored' && wordGone.every(r => r.endsWith(':keyword')), wordGone.join(' '));
+  const noSuggested = copy(picked);
+  noSuggested.sites.facebook.presets.suggested = false;
+  const hadSuggested = by('u-sug') === 'suggested';
+  w.BFX_ENGINE.apply(noSuggested);
+  ok('…while a switch on this site still redoes the page', hadSuggested && !by('u-sug'));
+
+  /* The address, as the bootstrap watches it. */
+  const page = async (html, url, settings) => {
+    const p = boot(html, url);
+    p.chrome.storage.local.set({ bfx: settings || p.BFX_STORE.merge(null) });
+    p.eval(fs.readFileSync(path.join(root, 'src/content/main.js'), 'utf8'));
+    await frame();
+    return p;
+  };
+  const go = (p, to) => async () => {
+    p.history.pushState({}, '', to);
+    p.dispatchEvent(new p.PopStateEvent('popstate'));
+    await new Promise(r => setTimeout(r, 10));
+  };
+  const scoped = S.merge({ keywords: { enabled: true, terms: ['crypto'] }, sites: { facebook: { custom: [
+    { id: 'g', selector: '[data-focus-target="stories"]', label: 'Stories', scope: 'path', path: '/groups/', enabled: true }] } } });
+  const fb = await page(feed, 'https://www.facebook.com/', scoped);
+  const opened = await shownAgain(fb, go(fb, '/groups/'));
+  ok('a new page on Facebook shows nothing hidden again', fb.document.querySelector('[data-bfx-hidden-by]') && !opened.length, opened.join(' '));
+  ok('…and brings in a picked rule kept to that page', backgrounds.get(fb).sheets.some(css => css.includes('data-focus-target')));
+  await go(fb, '/')();
+  await frame();
+  ok('…which leaves again with it', !backgrounds.get(fb).sheets.length, JSON.stringify(backgrounds.get(fb).sheets));
+
+  const x = fs.readFileSync(path.join(__dirname, 'fixtures/x.html'), 'utf8');
+  const xp = await page(x, 'https://x.com/home');
+  const xBy = id => xp.document.getElementById(id).getAttribute('data-bfx-hidden-by');
+  const post = await shownAgain(xp, go(xp, '/alice/status/111'));
+  ok('on X, opening a post shows nothing hidden again', xBy('cell-wtf-user') === 'whoToFollow' && !post.length, post.join(' '));
+  await go(xp, '/alice/following')();
+  await frame();
+  ok('…while a page that lists accounts, which Who to follow reads, is judged again', !xBy('cell-wtf-user'), xBy('cell-wtf-user'));
+  await go(xp, '/hashtag/cats')();
+  await frame();
+  await go(xp, '/hashtag/cats?f=user')();
+  await frame();
+  ok('…as is a People tab, which only the query names', !xBy('cell-wtf-user'), xBy('cell-wtf-user'));
+}
+
 /* The background page's side of it: each sheet goes in as a user style, the
  * kind a page cannot outrank or read, into the document that asked for it. */
 console.log('\nthe background page');
 {
   const calls = [];
   let onMessage = null;
+  let onInstalled = null;
+  let writes = 0;
   const none = { addListener: () => {} };
   const chrome = {
-    runtime: { id: 'xrnsocial', onMessage: { addListener: fn => { onMessage = fn; } }, onInstalled: none, onStartup: none },
-    storage: { local: { get: (k, cb) => cb({}), set: (o, cb) => cb && cb() }, onChanged: none },
+    runtime: { id: 'xrnsocial', onMessage: { addListener: fn => { onMessage = fn; } }, onInstalled: { addListener: fn => { onInstalled = fn; } }, onStartup: none },
+    storage: { local: { get: (k, cb) => cb({}), set: (o, cb) => { writes++; if (cb) cb(); } }, onChanged: none },
     commands: { onCommand: none },
     action: { setBadgeText: () => {}, setBadgeBackgroundColor: () => {} },
     tabs: { query: () => Promise.resolve([]), sendMessage: () => Promise.resolve() },
@@ -556,17 +690,195 @@ console.log('\nthe background page');
   ok('in Chrome a sheet goes into the very document that sent it, as a user style, before the old one comes out',
     !!chromeTab && chromeTab.ok && first.every(([, d]) => d.origin === 'USER' &&
       JSON.stringify(d.target) === '{"tabId":7,"documentIds":["doc-1"]}') &&
-    steps(first) === 'remove a{display:none !important}, insert a{display:none !important}, remove b{display:none !important}',
+    steps(first) === 'insert a{display:none !important}, remove b{display:none !important}',
     JSON.stringify(first));
-  ok('…and a copy of it already there comes out first, so a sheet sent twice is in once', steps(first).startsWith('remove a'));
+  /* Taking each sheet out before putting it in cost two calls a picked rule
+   * on every page load; only one the tab may already have needs it. */
+  await ask(Object.assign({ type: 'bfx:css', again: css.add }, css), { tab: { id: 7 }, frameId: 0, documentId: 'doc-1' });
+  const resent = calls.splice(0);
+  ok('…and a sheet sent again, whose answer was lost, comes out first, so it is in once',
+    steps(resent) === 'remove a{display:none !important}, insert a{display:none !important}, remove b{display:none !important}', steps(resent));
   const firefoxTab = await ask(Object.assign({ type: 'bfx:css' }, css), { tab: { id: 7 }, frameId: 0 });
   const next = calls.splice(0);
-  ok('Firefox names no document: then it is the frame that sent it', !!firefoxTab && firefoxTab.ok && next.length === 3 &&
+  ok('Firefox names no document: then it is the frame that sent it', !!firefoxTab && firefoxTab.ok && next.length === 2 &&
     next.every(([, d]) => JSON.stringify(d.target) === '{"tabId":7,"frameIds":[0]}'), JSON.stringify(next));
   const fromPopup = await ask(Object.assign({ type: 'bfx:css' }, css), { id: 'xrnsocial', url: 'chrome-extension://x/src/popup/popup.html' });
   ok('a message from anywhere but a tab injects nothing', fromPopup === null && calls.length === 0, JSON.stringify(calls));
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
   ok('the manifest asks for the scripting permission it needs', manifest.permissions.includes('scripting'));
+  /* Every tab the extension reads or acts on is a supported site, which the
+   * host permissions cover; activeTab only widened what a click on the icon
+   * granted on any other site. */
+  ok('…and for nothing it does not use', JSON.stringify(manifest.permissions.slice().sort()) === '["scripting","storage"]',
+    JSON.stringify(manifest.permissions));
+  /* The tab's side: it names the sheets whose answer was lost. */
+  {
+    const w = boot(PAGE);
+    const sent = [];
+    let lose = true;
+    const send = w.chrome.runtime.sendMessage;
+    w.chrome.runtime.sendMessage = (msg, cb) => {
+      sent.push(JSON.parse(JSON.stringify(msg)));
+      if (lose) { lose = false; setTimeout(() => cb(undefined), 0); } else send(msg, cb);
+    };
+    const rules = (...ids) => w.BFX_STORE.merge({ sites: { facebook: { custom: ids.map(id => ({ id, selector: '#' + id, scope: 'all', enabled: true })) } } });
+    const sheet = id => '#' + id + ':not(#bfx-z){display:none !important}';
+    w.BFX_ENGINE.apply(rules('one', 'two'));
+    await frame();
+    ok('a page load sends its picked sheets once each, none to take out first',
+      sent.length === 1 && sent[0].add.length === 2 && !(sent[0].again || []).length, JSON.stringify(sent));
+    w.BFX_ENGINE.apply(rules('one'));
+    await frame();
+    const last = sent[sent.length - 1];
+    ok('after a lost answer, a sheet still wanted is sent as one that may be in, and one no longer wanted comes out',
+      sent.length === 2 && last.add.join() === sheet('one') && (last.again || []).join() === sheet('one') && last.remove.join() === sheet('two'),
+      JSON.stringify(last));
+  }
+  /* It wrote back what it read, which undid a change made in between. */
+  onInstalled({ reason: 'update' });
+  await frame();
+  ok('installing or updating writes no settings', writes === 0, writes + ' writes');
+}
+
+/* Settings writes are read-modify-writes, and two that overlapped were built
+ * from the same read: the later one undid the earlier. Storage here answers
+ * a moment later, as the browser's does. */
+console.log('\nsettings writes');
+{
+  const w = boot(PAGE);
+  const S = w.BFX_STORE;
+  const stored = {};
+  let refuse = null;
+  let unreadable = false;
+  const later = fn => setTimeout(fn, 1);
+  const failing = (message, cb) => { w.chrome.runtime.lastError = { message }; cb(); w.chrome.runtime.lastError = null; };
+  w.chrome.storage.local = {
+    get: (k, cb) => later(() => unreadable ? failing('read failed', () => cb(undefined)) : cb({ [k]: stored[k] && JSON.parse(JSON.stringify(stored[k])) })),
+    set: (o, cb) => later(() => refuse ? failing(refuse, cb) : (Object.assign(stored, JSON.parse(JSON.stringify(o))), cb()))
+  };
+  await Promise.all([S.update(s => { s.placeholders = true; }), S.update(s => { s.keywords.enabled = true; })]);
+  const both = await S.get();
+  ok('two writes made together both land', both.placeholders === true && both.keywords.enabled === true,
+    JSON.stringify({ placeholders: both.placeholders, words: both.keywords.enabled }));
+  refuse = 'QUOTA_BYTES quota exceeded';
+  const refused = await S.update(s => { s.enabled = false; }).then(() => 'saved', e => e.message);
+  refuse = null;
+  ok('a write storage refuses is reported as not saved', refused === 'QUOTA_BYTES quota exceeded', refused);
+  const after = await S.update(s => { s.placeholders = false; }).then(() => S.get());
+  ok('…and holds up no write after it', after.placeholders === false && after.enabled === true);
+  unreadable = true;
+  const unread = await S.update(s => { s.placeholders = true; }).then(() => 'saved', e => e.message);
+  unreadable = false;
+  ok('a write is never built on settings that could not be read', unread === 'read failed' &&
+    stored.bfx.keywords.enabled === true && stored.bfx.placeholders === false, unread);
+}
+
+/* The popup, run as the browser runs it, over storage that can refuse and a
+ * tab that may not answer. */
+console.log('\nthe popup');
+const bootPopup = async ({ tabAnswers = true } = {}) => {
+  const html = fs.readFileSync(path.join(root, 'src/popup/popup.html'), 'utf8');
+  const { window: p } = new JSDOM(html, { url: 'https://popup.test/src/popup/popup.html', pretendToBeVisual: true, runScripts: 'outside-only' });
+  const io = { stored: {}, refuse: null, sent: [], reloaded: [], closed: false };
+  const failing = (message, cb, arg) => { p.chrome.runtime.lastError = { message }; cb(arg); p.chrome.runtime.lastError = null; };
+  p.chrome = {
+    storage: {
+      local: {
+        get: (k, cb) => setTimeout(() => cb({ [k]: io.stored[k] && JSON.parse(JSON.stringify(io.stored[k])) }), 1),
+        set: (o, cb) => setTimeout(() => {
+          if (io.refuse) return failing(io.refuse, cb);
+          Object.assign(io.stored, JSON.parse(JSON.stringify(o)));
+          cb();
+        }, 1)
+      },
+      onChanged: { addListener: () => {} }
+    },
+    runtime: { lastError: null, openOptionsPage: () => {} },
+    tabs: {
+      query: (q, cb) => cb([{ id: 1, url: 'https://www.facebook.com/' }]),
+      sendMessage: (id, msg, cb) => {
+        io.sent.push(msg.type);
+        if (!cb) return;
+        setTimeout(() => tabAnswers ? cb({ ok: true }) : failing('Could not establish connection. Receiving end does not exist.', cb), 1);
+      },
+      reload: id => { io.reloaded.push(id); }
+    }
+  };
+  p.close = () => { io.closed = true; };
+  for (const src of Array.from(p.document.querySelectorAll('script[src]')).map(s => s.getAttribute('src'))) {
+    p.eval(fs.readFileSync(path.join(root, 'src/popup', src), 'utf8'));
+  }
+  await frame();
+  return { p, io, $: id => p.document.getElementById(id) };
+};
+{
+  const { p, io, $: $p } = await bootPopup();
+  const stored = io.stored;
+  const flip = on => { $p('siteEnabled').checked = on; $p('siteEnabled').dispatchEvent(new p.Event('change')); };
+  ok('it opens on the tab\'s site', $p('siteName').textContent === 'Facebook', $p('siteName').textContent);
+  flip(false);
+  await frame();
+  ok('a switch flipped is saved', stored.bfx && stored.bfx.sites.facebook.enabled === false && $p('tallyWord').textContent === 'Off here',
+    $p('tallyWord').textContent);
+  io.refuse = 'QUOTA_BYTES quota exceeded';
+  flip(true);
+  await frame();
+  ok('one storage refuses goes back to what is stored, and says Not saved',
+    stored.bfx.sites.facebook.enabled === false && !$p('siteEnabled').checked && $p('tallyWord').textContent === 'Not saved',
+    $p('tallyWord').textContent + ' / checked ' + $p('siteEnabled').checked);
+  io.refuse = null;
+  flip(true);
+  await frame();
+  ok('…until a write goes through', stored.bfx.sites.facebook.enabled === true && $p('tallyWord').textContent !== 'Not saved',
+    $p('tallyWord').textContent);
+  $p('pick').click();
+  await frame();
+  ok('Hide something starts the picker in the tab and closes the popup', io.sent.includes('bfx:pick') && io.closed && !io.reloaded.length);
+}
+/* A tab opened before the install or an update has no content script, so
+ * nothing answered and Hide something did nothing at all. */
+{
+  const { io, $: $p } = await bootPopup({ tabAnswers: false });
+  ok('on a tab that does not answer, the button says Reload tab', $p('pickLabel').textContent === 'Reload tab', $p('pickLabel').textContent);
+  $p('pick').click();
+  await frame();
+  ok('…and reloads it', io.reloaded.join() === '1' && io.closed, JSON.stringify(io));
+}
+
+/* A page that never stops changing (a video's progress, a live chat) was
+ * scanned every frame, each scan with document-wide queries. */
+console.log('\na page that keeps changing');
+{
+  const w = boot(fs.readFileSync(path.join(__dirname, 'fixtures/feed.html'), 'utf8'));
+  const doc = w.document;
+  w.BFX_ENGINE.apply(w.BFX_STORE.merge({ keywords: { enabled: true, terms: ['crypto'] } }));
+  await frame();
+  await new Promise(r => setTimeout(r, 200));
+  const units = w.BFX_ENGINE.site.units;
+  const all = w.Document.prototype.querySelectorAll;
+  let scans = 0;
+  w.Document.prototype.querySelectorAll = function (sel) { if (sel === units) scans++; return all.call(this, sel); };
+  const ticker = doc.body.appendChild(doc.createElement('span'));
+  const late = doc.getElementById('u-organic').cloneNode(true);
+  late.id = 'late-kw';
+  late.setAttribute('aria-posinset', '99');
+  for (let i = 0; i < 40; i++) {
+    ticker.textContent = String(i);
+    if (i === 20) doc.getElementById('u-organic').after(late), late.append(' buy crypto');
+    await new Promise(r => setTimeout(r, 16));
+  }
+  await new Promise(r => setTimeout(r, 150));
+  w.Document.prototype.querySelectorAll = all;
+  ok(`changes every frame for ${40 * 16} ms are looked at a few times, not every frame: ${scans} scans`, scans <= 15, scans + ' scans');
+  ok('…and a post that came meanwhile is still judged', late.getAttribute('data-bfx-hidden-by') === 'keyword', 'got ' + late.getAttribute('data-bfx-hidden-by'));
+  await new Promise(r => setTimeout(r, 200));
+  const quiet = late.cloneNode(true);
+  quiet.id = 'quiet-kw';
+  quiet.setAttribute('aria-posinset', '100');
+  late.after(quiet);
+  await frame();
+  ok('once the page is quiet again, a new post is judged on the next frame', quiet.getAttribute('data-bfx-hidden-by') === 'keyword',
+    'got ' + quiet.getAttribute('data-bfx-hidden-by'));
 }
 
 /* ------------------------------------------------------- late labels -- */
@@ -590,7 +902,7 @@ ok('placeholder styles are emitted', sheet.includes('[data-bfx-hidden-by][data-b
 /* The bar is in the page, where the site's scripts can read it: it says a
  * word was blocked, never which. */
 ok('a word-blocked post leaves a placeholder that says why, without the word',
-  /a word you blocked/.test($('u-kw').getAttribute('data-bfx-note') || '') &&
+  $('u-kw').getAttribute('data-bfx-note') === 'Hidden · Blocked word' &&
   !/crypto|give/i.test($('u-kw').getAttribute('data-bfx-note')), $('u-kw').getAttribute('data-bfx-note'));
 ok('a text-rule post names its rule',
   /Suggested posts/.test($('u-sug').getAttribute('data-bfx-note') || ''));
@@ -618,7 +930,7 @@ const restored = BFX_STORE.fromBackup(JSON.parse(JSON.stringify(BFX_STORE.toBack
 ok('a backup restores to the same settings', JSON.stringify(restored) === JSON.stringify(mine));
 let threw = null;
 try { BFX_STORE.fromBackup({ hello: 'world' }); } catch (e) { threw = e.message; }
-ok('a file that is not a backup is refused', /does not contain xrnsocial settings/.test(threw || ''), threw);
+ok('a file that is not a backup is refused', threw === 'Not a backup', threw);
 const cleaned = BFX_STORE.fromBackup({
   presets: { stories: 'yes', feed: true },
   custom: [{ selector: 'div}body{color:red' }, { selector: 'a[href^="/x"]', scope: 'weird' }, null],
@@ -700,6 +1012,12 @@ const notFb = ['adsmanager.facebook.com', 'business.facebook.com', 'developers.f
 ok('the Facebook rules run on Facebook and Messenger, and on none of Facebook\'s other apps',
   fbHosts.every(h => BFX_SITES.forHost(h) === 'facebook') && notFb.every(h => BFX_SITES.forHost(h) === null),
   fbHosts.concat(notFb).map(h => h + '=' + BFX_SITES.forHost(h)).join(' '));
+/* Facebook in a language of its own address, and its older phone hosts. */
+const fbMore = ['vi-vn.facebook.com', 'en-gb.facebook.com', 'pt-br.facebook.com', 'mbasic.facebook.com', 'touch.facebook.com', 'mobile.facebook.com'];
+const notFbMore = ['ads-manager.facebook.com', 'vi-vn.business.facebook.com', 'vi-vnx.facebook.com'];
+ok('…and on Facebook in another language or on an older phone address',
+  fbMore.every(h => BFX_SITES.forHost(h) === 'facebook') && notFbMore.every(h => BFX_SITES.forHost(h) === null),
+  fbMore.concat(notFbMore).map(h => h + '=' + BFX_SITES.forHost(h)).join(' '));
 const old = BFX_STORE.merge({ enabled: true, presets: { stories: true, sponsored: false }, custom: [{ id: 'o1', selector: '#x', scope: 'all' }] });
 ok('settings from before other sites move to Facebook',
   old.sites.facebook.presets.stories === true && old.sites.facebook.presets.sponsored === false &&
@@ -844,6 +1162,40 @@ console.log('\nfacebook.com as of October 2026 (test/fixtures/feed.html)');
   userEvent(video, new w.MouseEvent('pointerdown', { bubbles: true }));
   autoplay();
   ok('one started by a click plays on', pauses === 2, pauses + ' pauses');
+  /* Seconds go by on this page's clock without waiting for them. */
+  const realNow = w.Date.now;
+  let skew = 0;
+  w.Date.now = () => realNow.call(w.Date) + skew;
+  skew += 3000;
+  autoplay();
+  ok('…and plays on when its site stops and restarts it later (an ad break, a player rebuilt)', pauses === 2, pauses + ' pauses');
+  const emptied = () => video.dispatchEvent(new w.Event('emptied'));
+  emptied();
+  skew += 3000;
+  autoplay();
+  ok('…until it is given a new source: then it is another video', pauses === 3, pauses + ' pauses');
+  const box = video.getBoundingClientRect();
+  userEvent(video, new w.MouseEvent('click', { bubbles: true, clientX: box.left + 1, clientY: box.top + 1 }));
+  skew += 3000;
+  autoplay();
+  ok('a click on the video that the site answers seconds later still started it', pauses === 3, pauses + ' pauses');
+  emptied();
+  userEvent(w.document.body, new w.MouseEvent('click', { bubbles: true, clientX: box.right + 500, clientY: box.bottom + 500 }));
+  skew += 3000;
+  autoplay();
+  ok('…a click somewhere else on the page did not', pauses === 4, pauses + ' pauses');
+  emptied();
+  userEvent(w.document.body, new w.KeyboardEvent('keydown', { bubbles: true, key: 'k' }));
+  autoplay();
+  ok('k, a play key, counts as a click', pauses === 4, pauses + ' pauses');
+  emptied();
+  skew += 3000;
+  const field = w.document.body.appendChild(w.document.createElement('input'));
+  userEvent(field, new w.KeyboardEvent('keydown', { bubbles: true, key: 'k' }));
+  autoplay();
+  ok('…but not a k typed into a box', pauses === 5, pauses + ' pauses');
+  field.remove();
+  w.Date.now = realNow;
   w.BFX_ENGINE.apply(S.merge({ presets: { noAutoplay: false } }));
   pauses = 0;
   await new Promise(r => setTimeout(r, 1600));
@@ -1057,6 +1409,30 @@ console.log('\nx.com as of October 2026 (test/fixtures/x.html)');
     !emptied.length, emptied.join(' '));
   ok('…while a hashtag\'s posts and a profile\'s likes still lose the suggestions',
     await cellOn('https://x.com/hashtag/cats') === 'whoToFollow' && await cellOn('https://x.com/alice/likes') === 'whoToFollow');
+
+  /* A row that can't be judged yet (a heading whose accounts have not come)
+   * is looked at again for 40 scans. The count was kept for the row's whole
+   * life, so after a settings change one that had used its scans was judged
+   * at first sight, before its accounts came, and stayed. */
+  const later = boot(html, 'https://x.com/home');
+  const doc = later.document;
+  const cell = (id, inner) => Object.assign(doc.createElement('div'), { id, innerHTML: inner });
+  const head = cell('late-head', '<div><h2 role="heading"><span>More to follow</span></h2></div>');
+  const rows = cell('late-rows', '');
+  [head, rows].forEach(c => c.setAttribute('data-testid', 'cellInnerDiv'));
+  doc.getElementById('cell-wtf-more').after(head, rows);
+  later.BFX_ENGINE.apply(later.BFX_STORE.merge(null));
+  for (let i = 0; i < 45; i++) {
+    later.BFX_ENGINE.scan();
+    await new Promise(r => later.requestAnimationFrame(() => setTimeout(r, 0)));
+  }
+  later.BFX_ENGINE.apply(later.BFX_STORE.merge({ sites: { x: { presets: { reposts: true } } } }));
+  await frame();
+  rows.innerHTML = '<div><div data-testid="UserCell"><a href="/hal">Hal</a><button>Follow</button></div></div>';
+  await frame();
+  await frame();
+  ok('after a settings change, a row that used its scans before gets them again', head.getAttribute('data-bfx-hidden-by') === 'whoToFollow',
+    'got ' + head.getAttribute('data-bfx-hidden-by'));
 }
 
 /* ----------------------------------------------- linkedin.com, October 2026 -- */

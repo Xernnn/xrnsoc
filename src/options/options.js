@@ -79,7 +79,7 @@ el.file.addEventListener('change', function () {
   message('');
   if (!file) return;
   if (file.size > 1024 * 1024) {
-    message('That file is too big to be a ' + store.APP + ' backup.', 'bad');
+    message('Not a backup: too big', 'bad');
     return;
   }
   file.text().then(function (text) {
@@ -87,13 +87,13 @@ el.file.addEventListener('change', function () {
     try {
       data = JSON.parse(text);
     } catch (e) {
-      throw new Error('This file is not a backup (it is not valid JSON).');
+      throw new Error('Not a backup');
     }
     pending = store.fromBackup(data);
 
+    /* Picked rules whose selector is not valid are left out. */
     var dropped = givenCount(data) - pickedCount(pending);
-    el.preview.textContent = 'This backup has ' + summary(pending) + '.' +
-      (dropped > 0 ? ' ' + plural(dropped, 'picked rule') + ' will be skipped: not a valid selector.' : '');
+    el.preview.textContent = summary(pending) + (dropped > 0 ? ' · ' + dropped + ' skipped' : '');
     el.restore.disabled = false;
   }).catch(function (e) {
     message(e.message, 'bad');
@@ -102,13 +102,16 @@ el.file.addEventListener('change', function () {
 
 el.restore.addEventListener('click', function () {
   if (!pending) return;
-  if (!confirm('Replace all your current ' + store.APP + ' settings with this backup?')) return;
-  store.set(pending).then(function () {
+  if (!confirm('Replace all settings with this backup?')) return;
+  var restoring = pending;
+  store.update(function () { return restoring; }).then(function () {
     pending = null;
     el.restore.disabled = true;
     el.file.value = '';
     el.preview.textContent = '';
-    message('Restored. Open tabs have already updated.', 'ok');
+    message('Restored', 'ok');
+  }, function (e) {
+    message('Not restored: ' + e.message, 'bad');
   });
 });
 

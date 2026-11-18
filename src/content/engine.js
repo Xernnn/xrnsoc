@@ -33,7 +33,6 @@
   var UNITS = site ? site.units : null;
   var SILENT = (site && site.silent) || {};
 
-  var full = null;         // the full settings last applied, for refresh()
   var state = null;        // the current site's view of them (STORE.view)
   var generation = 0;      // bumped on every settings change, invalidates marks
   var observer = null;
@@ -135,6 +134,7 @@
    * !important no rule of the site's outranks. The price is a round trip:
    * they land a moment after the page's own sheet. */
   var injected = [];       // the css of each picked rule the background applied
+  var maybe = [];          // sent, but the answer never came: it may be in or not
   var wanted = [];         // what the last apply() asked for
   var sending = false;     // a change is on its way there
 
@@ -162,20 +162,30 @@
 
   /* One change at a time, each the difference between what is applied and
    * what is wanted by then. One that fails is tried again with the next
-   * change of settings or page. */
+   * change of settings or page. Its sheets may have gone in all the same,
+   * so they are named as `again`: the background takes a copy out before
+   * putting one in, and takes one out that is no longer wanted. Every other
+   * sheet costs one call. */
   function sendPicked() {
     var add = wanted.filter(function (css) { return injected.indexOf(css) === -1; });
-    var remove = injected.filter(function (css) { return wanted.indexOf(css) === -1; });
+    var remove = injected.concat(maybe).filter(function (css, i, all) {
+      return wanted.indexOf(css) === -1 && all.indexOf(css) === i;
+    });
     if (!add.length && !remove.length) return;
+    var again = add.filter(function (css) { return maybe.indexOf(css) !== -1; });
     sending = true;
     var done = function (ok) {
       sending = false;
-      if (!ok) return;
+      if (!ok) {
+        maybe = maybe.concat(add.filter(function (css) { return maybe.indexOf(css) === -1; }));
+        return;
+      }
+      maybe = maybe.filter(function (css) { return add.indexOf(css) === -1 && remove.indexOf(css) === -1; });
       injected = injected.filter(function (css) { return remove.indexOf(css) === -1; }).concat(add);
       sendPicked();
     };
     try {
-      chrome.runtime.sendMessage({ type: 'bfx:css', add: add, remove: remove }, function (res) {
+      chrome.runtime.sendMessage({ type: 'bfx:css', add: add, remove: remove, again: again }, function (res) {
         void chrome.runtime.lastError;   // the background page was not reached
         done(!!(res && res.ok));
       });
@@ -341,7 +351,7 @@
 
   function hide(el, why, note) {
     if (!el || el.hasAttribute(BY)) return;
-    var text = note && state && state.placeholders ? 'Hidden by xrnsocial · ' + note + ' — click to show' : null;
+    var text = note && state && state.placeholders ? 'Hidden · ' + note : null;
     mark(el, why, text);
     el.__bfxHide = { why: why, note: text };
     hiddenEls.add(el);
@@ -383,30 +393,78 @@
   /* ------------------------------------------------------- autoplay -- */
 
   /* Sites start videos as they scroll into view. With the switch on, a video
-   * that starts playing without a click or Enter/Space in the moment before
-   * is paused again; one the person started plays on. Media events do not
-   * bubble, but capturing listeners on the document still see them. */
+   * that starts playing by itself is paused again. One the person started
+   * plays on, through every pause and restart its site makes (an ad break,
+   * a player rebuilt), until it is given a new source. Started by the
+   * person: within GESTURE_MS of a press or a play key anywhere, or within
+   * ON_VIDEO_MS of a click or play key on that video, for a site that takes
+   * its time to start it. Media events do not bubble, but capturing
+   * listeners on the document still see them. */
   var GESTURE_MS = 1500;
+  var ON_VIDEO_MS = 5000;
   var lastGesture = 0;
+  var lastAim = null;      // where the last click or play key went: { at, x, y, target }
+
+  var PLAY_KEYS = { 'Enter': true, ' ': true, 'k': true, 'K': true, 'MediaPlayPause': true, 'MediaPlay': true };
+
+  function typing(el) {
+    return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+  }
 
   /* Only the person's own: a page that makes up a pointerdown before it
-   * starts a video would get its autoplay past the switch. */
+   * starts a video would get its autoplay past the switch. A k typed into a
+   * box is a letter. A press is not aimed at anything: on a phone, every
+   * scroll starts with one. */
   function noteGesture(e) {
     if (!e.isTrusted) return;
-    if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+    if (e.type === 'keydown' && (!PLAY_KEYS[e.key] || (/^k$/i.test(e.key) && typing(e.target)))) return;
     lastGesture = Date.now();
+    if (e.type === 'pointerdown') return;
+    var path = e.composedPath ? e.composedPath() : [];
+    lastAim = { at: lastGesture, x: e.clientX, y: e.clientY, target: path[0] || e.target };
   }
   document.addEventListener('pointerdown', noteGesture, true);
+  document.addEventListener('click', noteGesture, true);
   document.addEventListener('keydown', noteGesture, true);
+
+  function area(el) {
+    var r = el.getBoundingClientRect();
+    return r.width * r.height;
+  }
+
+  /* A click inside the video's box (its controls are drawn over it), or a
+   * key on the video, on something in it, or on its player around it. */
+  function aimedAt(video, aim) {
+    var t = aim.target;
+    if (t === video || (t && t.nodeType === 1 && video.contains(t))) return true;
+    if (typeof aim.x === 'number') {
+      var r = video.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && aim.x >= r.left && aim.x <= r.right && aim.y >= r.top && aim.y <= r.bottom;
+    }
+    return !!t && t.nodeType === 1 && t !== document.body && t !== document.documentElement &&
+      t.contains(video) && area(t) <= 2 * area(video);
+  }
+
+  function startedByPerson(video) {
+    var now = Date.now();
+    if (now - lastGesture < GESTURE_MS) return true;
+    return !!lastAim && now - lastAim.at < ON_VIDEO_MS && aimedAt(video, lastAim);
+  }
 
   function onPlay(e) {
     var video = e.target;
     if (!state || !state.enabled || !state.presets.noAutoplay) return;
     if (!video || video.tagName !== 'VIDEO') return;
-    if (Date.now() - lastGesture < GESTURE_MS) { video.__bfxStarted = true; return; }
+    if (video.__bfxStarted || startedByPerson(video)) { video.__bfxStarted = true; return; }
     video.pause();
   }
   document.addEventListener('play', onPlay, true);
+
+  /* A feed that moves its player on to the next post gives it a new source. */
+  function onEmptied(e) {
+    if (e.target && e.target.tagName === 'VIDEO') e.target.__bfxStarted = false;
+  }
+  document.addEventListener('emptied', onEmptied, true);
 
   /* "play" does not leave a shadow root, so a player that keeps its <video>
    * in one (Reddit's shreddit-player) is never heard from the document. The
@@ -422,8 +480,9 @@
       if (!root.__bfxPlay) {
         root.__bfxPlay = true;
         root.addEventListener('play', onPlay, true);
+        root.addEventListener('emptied', onEmptied, true);
         root.querySelectorAll('video').forEach(function (v) {
-          if (!v.paused && !v.__bfxStarted && Date.now() - lastGesture >= GESTURE_MS) v.pause();
+          if (!v.paused && !v.__bfxStarted && !startedByPerson(v)) v.pause();
         });
       }
     });
@@ -613,6 +672,12 @@
    * all of it. */
   var REGEX_TEXT_MAX = 1000;
 
+  /* STORE.slowPattern reads a pattern's shape, which is no proof. One that
+   * still takes this long over a single post is a plain word for the rest of
+   * the page's life, so it costs one post's wait, not one on every post. */
+  var REGEX_MS = 100;
+  var tooSlow = {};        // the source of each pattern that took that long
+
   /* The term that matched, or null. */
   function matchKeyword(unit, ctx) {
     var raw = ctx.text();
@@ -621,7 +686,18 @@
     var head = raw.length > REGEX_TEXT_MAX ? raw.slice(0, REGEX_TEXT_MAX) : raw;
     for (var i = 0; i < keywords.length; i++) {
       var term = keywords[i];
-      if (term.re ? term.re.test(head) : text.indexOf(term.text) !== -1) return term.source;
+      var hit;
+      if (term.re) {
+        var started = Date.now();
+        hit = term.re.test(head);
+        if (Date.now() - started > REGEX_MS) {
+          tooSlow[term.source] = true;
+          keywords[i] = { text: term.source.toLowerCase(), source: term.source };
+        }
+      } else {
+        hit = text.indexOf(term.text) !== -1;
+      }
+      if (hit) return term.source;
     }
     return null;
   }
@@ -635,7 +711,7 @@
       var t = String(raw).trim();
       if (!t) return null;
       var m = /^\/(.+)\/([gimsuy]*)$/.exec(t);
-      if (m && !STORE.slowPattern(m[1])) {
+      if (m && !STORE.slowPattern(m[1]) && !tooSlow[t]) {
         try {
           // No g or y: both make test() stateful between posts.
           return { re: new RegExp(m[1], m[2].replace(/[gy]/g, '')), source: t };
@@ -668,8 +744,17 @@
     };
   }
 
-  /* How many frames a unit may stay unsure before its verdict stands. */
+  /* How many frames a unit may stay unsure before its verdict stands, each
+   * time the settings change. */
   var MAX_TRIES = 40;
+
+  function tried(unit) {
+    if (unit.__bfxTriesGen !== generation) {
+      unit.__bfxTriesGen = generation;
+      unit.__bfxTries = 0;
+    }
+    return ++unit.__bfxTries;
+  }
 
   /* Elements that changed since the last scan. Sites render a post in
    * pieces and empty posts that scroll away, then refill them, so a verdict
@@ -689,7 +774,34 @@
       else if (r.type === 'characterData') { if (r.target.parentElement) dirty.add(r.target.parentElement); }
       else dirty.add(r.target);
     }
-    schedule();
+    soon();
+  }
+
+  /* A page that never stops changing (a video's progress, a live chat) was
+   * scanned every frame, each scan with document-wide queries. After BUSY
+   * scans each followed by a change within QUIET_MS, its changes wait until
+   * SETTLE_MS after the last scan. A page that pauses for longer still has
+   * its changes looked at on the next frame, and a settings change or a new
+   * page never waits. */
+  var QUIET_MS = 40;
+  var SETTLE_MS = 100;
+  var BUSY = 3;
+  var lastScan = -Infinity;
+  var busy = 0;
+  var held = 0;
+
+  function soon() {
+    if (pending || held) return;
+    var now = performance.now();
+    if (now - lastScan > QUIET_MS) busy = 0;
+    if (busy < BUSY) {
+      schedule();
+      return;
+    }
+    held = setTimeout(function () {
+      held = 0;
+      schedule();
+    }, Math.max(0, lastScan + SETTLE_MS - now));
   }
 
   /* A feed renders thousands of changes a frame, most of them inside a
@@ -732,6 +844,8 @@
 
   function scan() {
     pending = false;
+    lastScan = performance.now();
+    busy++;
     if (!state || !state.enabled) {
       dirty.clear();
       relabelled.clear();
@@ -771,11 +885,11 @@
           /* The "show" bar is in the page, where the site's scripts can
            * read it, so it never says which word. */
           if (matchKeyword(unit, ctx)) {
-            hide(unit, 'keyword', 'a word you blocked');
+            hide(unit, 'keyword', 'Blocked word');
             hidden = true;
           }
         }
-        if (!hidden && ctx.isUnsure() && (unit.__bfxTries = (unit.__bfxTries || 0) + 1) < MAX_TRIES) {
+        if (!hidden && ctx.isUnsure() && tried(unit) < MAX_TRIES) {
           continue;
         }
         unit.__bfxGen = generation;
@@ -934,13 +1048,58 @@
     return s.enabled ? pack.redirect(s, loc) : null;
   }
 
+  /* What the site's rules read from the address (site.pageKey), as of the
+   * last full look at the page. */
+  var pageKey = '';
+
+  function keyOfPage() {
+    return site.pageKey ? String(site.pageKey(state)) : '';
+  }
+
+  /* A new address in the same tab: every supported site is a single-page
+   * app. The posts of a new page are new elements, judged as they come, so
+   * only what reads the address is redone: picked rules kept to one page,
+   * and, when the pack's key for the page changes, every verdict. Opening
+   * and closing a post neither shows what was hidden nor reads every post
+   * again. */
+  function route() {
+    if (!site || !state) return;
+    if (keyOfPage() !== pageKey) judge();
+    else applyPicked(pickedCss(state));
+  }
+
   /* --------------------------------------------------------------- api -- */
 
-  /* `next` is the full settings; the page runs on its own site's view. */
+  var PARTS = ['enabled', 'presets', 'custom', 'keywords', 'placeholders'];
+
+  /* `next` is the full settings; the page runs on its own site's view, and
+   * redoes only what changed in it. A switch flipped for another site
+   * changes nothing here; a picked rule only its sheet; a word only the
+   * posts that words hid, and a look at the rest for the new word. */
   function apply(next) {
     if (!site) return;
-    full = next;
-    state = STORE.view(next, site.id);
+    var view = STORE.view(next, site.id);
+    var was = state;
+    state = view;
+    var changed = was ? PARTS.filter(function (k) { return JSON.stringify(was[k]) !== JSON.stringify(view[k]); }) : PARTS;
+    if (!changed.some(function (k) { return k !== 'custom' && k !== 'keywords'; })) {
+      if (changed.indexOf('custom') !== -1) applyPicked(pickedCss(state));
+      if (changed.indexOf('keywords') !== -1) judgeWords();
+      return;
+    }
+    judge();
+  }
+
+  function judgeWords() {
+    keywords = state.enabled && state.keywords.enabled ? compileKeywords(state.keywords.terms) : [];
+    document.querySelectorAll('[' + BY + '="keyword"]').forEach(unhide);
+    generation++;
+    observe();
+  }
+
+  /* Everything again, from the settings in `state`. */
+  function judge() {
+    pageKey = keyOfPage();
     generation++;
 
     jsRules = state.enabled
@@ -958,7 +1117,10 @@
     /* Anything hidden by a rule that is now off must come back. Cheap, and it
      * means toggling a switch is instantly visible instead of needing F5. */
     unhideAll();
+    observe();
+  }
 
+  function observe() {
     if (needsObserver(state)) {
       startObserver();
       schedule();
@@ -969,13 +1131,14 @@
   }
 
   function refresh() {
-    if (full) apply(full);
+    if (site && state) judge();
   }
 
   root.BFX_ENGINE = {
     site: site,
     apply: apply,
     refresh: refresh,
+    route: route,
     scan: schedule,
     stats: stats,
     redirectFor: redirectFor,
