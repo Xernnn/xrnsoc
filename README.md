@@ -211,6 +211,7 @@ src/content/     engine, picker, and the bootstrap that runs on each site
 src/background/  keyboard shortcuts, the toolbar badge, picked rules' stylesheets
 src/popup/       the popup, with each site's icons in src/popup/sites/
 src/options/     backup and restore
+fonts/           MiSans Latin, the popup's and options page's font
 scripts/zip.js   packs the extension (npm run zip)
 test/            jsdom, Chrome and Firefox tests, with fixture pages
 ```
@@ -226,3 +227,7 @@ BlockDistractXrn. Backups saved under either name still restore.
 
 The site logos in `src/popup/sites/` are trademarks of their owners and are
 here only to name the sites. xrnsocial has no connection with any of them.
+
+The popup and the options page use [MiSans](https://hyperos.mi.com/font) by
+Xiaomi, free for commercial use and embedded here under its terms. The file
+ships with the extension, so no font is fetched from anywhere.
