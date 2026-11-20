@@ -14,32 +14,66 @@ in Chrome, Edge, Brave, Firefox and other Chromium or Firefox browsers.
 
 Nothing leaves your browser: no network requests, no analytics, no accounts.
 
+<p align="center">
+  <img src="docs/screenshots/popup.png" width="280" alt="The popup on a Reddit tab: 12 hidden here, the site switch on, the groups Ads, Feed, Posts, Sidebars, Top bar and Effects, with Feed open showing Recommended posts and Community suggestions on with one match each, All videos and NSFW posts off; Hide something, Words, Picked and More at the bottom">
+  &nbsp;
+  <img src="docs/screenshots/picker.png" width="520" alt="The picker on a test page: a post is outlined in blue and the bar at the bottom reads Posts from r/cats with the selector it will save; between the posts, two grey bars read Hidden, Recommended posts and Hidden, Blocked word">
+</p>
+<p align="center"><sub>The popup on a Reddit tab, and the picker choosing a community's posts on the test suite's mock page, with two "show" bars left by hidden posts.</sub></p>
+
 ## Features
 
 - **Switches for each site.** Ready-made rules grouped by where things are
   (Ads, Feed, Posts, Sidebars, Top bar…). Open a group for its switches, or
   turn the whole group off and on in one go: it remembers what you had on.
-  Changes apply at once to every open tab, with no reload.
-- **Picker.** Press `Alt+Shift+H` (or use the popup) and click anything to
-  hide it. `↑` and `↓` take the part around it or inside it, `a` switches
-  between all like it and only this one, and `Esc` cancels. On a phone, tap
-  it, adjust with Smaller and Bigger, then tap Hide.
-  Picking a whole post hides posts from that author, page or community.
+  Changes apply at once to every open tab, with no reload. Every site also
+  has *Effects*: Black & white, and on the feed sites Blur posts (a post
+  sharpens when you hover it); Facebook adds Center feed. Facebook, Reddit,
+  X, LinkedIn, Instagram and TikTok have *Stop autoplay*, which pauses a
+  video that starts on its own and never one you started.
+- **One switch per site.** The switch beside the site's name turns
+  xrnsocial off on that site only. The name opens the Sites screen, which
+  shows every site and switches the popup to another one.
+- **Picker.** Press `Alt+Shift+H` (or **Hide something** in the popup) and
+  click anything to hide it. `↑` and `↓` take the part around it or inside
+  it, `a` switches between all like it and only this one, `Enter` hides it
+  as the click does, and `Esc` cancels. On a phone, tap it, adjust with
+  Smaller and Bigger, then tap Hide. Picking a whole post hides posts from
+  that author, page or community.
+- **Picked rules.** The Picked screen lists what you picked on this site,
+  each with a switch, *All pages* or *Only* the page you picked it on, and a
+  delete that **Undo** brings back for five seconds.
 - **Word blocks.** Hide posts containing a word, or a `/regex/i`. A pattern
   reads the first 1,000 characters of a post, and one that could freeze the
   page (a repeat inside a repeat, such as `(a+)+`) is kept as a plain word.
-- **"Show" bars.** If you like, a hidden post can leave a one-line bar that
-  you click to bring the post back. A bar says why a post went, but never
-  which blocked word: the site can read it.
-- **Pause.** `Alt+Shift+B`, or the switch on the Sites screen, pauses and
-  resumes every rule.
+  Words apply on every site, and have their own on/off switch.
+- **"Show" bars.** If you like (More → *Leave a "show" bar*), a hidden post
+  leaves a one-line bar that you click to bring the post back. A bar says
+  why a post went, but never which blocked word: the site can read it.
+- **Pause.** `Alt+Shift+B`, or *Pause all sites* on the Sites screen,
+  pauses and resumes every rule. While paused, the toolbar icon says `off`
+  and the popup offers **Resume**.
 - **Match counts.** The popup shows how many things each switch is hiding
-  on the current page, and flags picked rules that no longer match.
+  on the current page, and flags picked rules that match nothing here, are
+  for another page, or that the browser can't read any more.
 - **A popup that shows what it's doing.** A site xrnsocial is working on
   wears xrnsocial's colours, with the site's symbol in white. Switch the site
   off or pause, and it gets its own logo back.
 - **Backup and restore.** All settings go into one file and come back from
-  it.
+  it (More → *Back up or restore*). **Reset** puts every site back to its
+  defaults, which also clears your words and picked rules.
+
+<p align="center">
+  <img src="docs/screenshots/popup-words.png" width="240" alt="The Words screen: the words switch on, an Add a word box, the words giveaway, spoiler, the regex /crypto|nft/i and hot take, and 1 hidden here">
+  &nbsp;
+  <img src="docs/screenshots/popup-picked.png" width="240" alt="The Picked screen: one rule, Posts from r/cats, matching 4 on this page, set to All pages, with its switch on and a delete button">
+</p>
+<p align="center"><sub>Words, shared by every site, and a rule picked on this one.</sub></p>
+
+<p align="center">
+  <img src="docs/screenshots/backup.png" width="460" alt="The Back up and restore page: 33 blocks on, 1 picked rule, 4 blocked words; a Download backup button, and a Restore card with a file chooser and a Restore this backup button">
+</p>
+<p align="center"><sub>Back up & restore, the extension's options page.</sub></p>
 
 ## Supported sites
 
@@ -55,11 +89,15 @@ Nothing leaves your browser: no network requests, no analytics, no accounts.
 | pixiv | 4 | 2 | Checked on the live site while signed out, computer and phone layouts, November 2026 |
 | MangaDex | 9 | 2 | Checked on the live site while signed out, November 2026 |
 
-Out of the box, every site hides its ads and red unread badges. Facebook also
-hides Reels, suggested posts and "people you may know". Reddit hides
-recommended posts and community suggestions, X hides "who to follow" and
-Premium upsells, and Instagram hides recommended Reels. Every other switch
-starts off.
+Out of the box, each site hides its ads and its red unread badges where it
+has them. On top of that, Facebook hides Reels, suggested posts and "people
+you may know" (with Reels on, a reel link lands on the home feed); Reddit
+hides recommended posts and community suggestions; X hides promoted trends,
+"who to follow" and Premium offers; LinkedIn hides Premium offers;
+Instagram hides recommended Reels; Twitch hides Prime and Bits offers and
+recommended channels; pixiv hides Premium offers; and MangaDex hides its
+"Advertise" link. TikTok starts with only *Coins and CapCut* on, since it
+has no ad switch yet. Every other switch starts off.
 
 ## Install
 
@@ -74,22 +112,51 @@ starts off.
 
 ### Firefox, Zen, LibreWolf and other Firefox browsers (128 or newer)
 
-1. Open `about:debugging` → **This Firefox** → **Load Temporary Add-on…**
-   and choose `manifest.json`, or a `xrnsocial.zip` built as shown below.
-2. Reload any tabs of supported sites that were already open. If nothing is
+To keep it installed, in Zen or another build that allows unsigned add-ons
+(Developer Edition, Nightly, some forks):
+
+1. In `about:config`, set `xpinstall.signatures.required` to `false`.
+2. Build `xrnsocial.zip` as shown under [Build](#build) and rename it to
+   `xrnsocial.xpi`.
+3. `about:addons` → ⚙ → **Install Add-on From File…** → that file.
+4. Reload any tabs of supported sites that were already open. If nothing is
    hidden, open `about:addons` → xrnsocial → **Permissions** and allow it
    on the sites.
 
-Firefox removes a temporary add-on when it closes. To keep the add-on, sign
-it for free with an unlisted upload to addons.mozilla.org. In builds that
-allow unsigned add-ons (Developer Edition, Nightly, some forks), you can
-instead set `xpinstall.signatures.required` to `false` in `about:config` and
-install the zip.
+An installed `.xpi` doesn't update itself: build and install the next
+version the same way. Release Firefox refuses unsigned files; sign the zip
+for free with an unlisted upload to addons.mozilla.org instead.
+
+To try it without installing, open `about:debugging` → **This Firefox** →
+**Load Temporary Add-on…** and choose `manifest.json`. Firefox removes a
+temporary add-on when it closes.
+
+### On a phone
+
+A Chromium browser that takes extensions, such as Quetta on Android, installs
+`xrnsocial.zip` from its extensions page. The picker works by touch there
+(see Features). There is no self-update: install a newer zip by hand.
+
+## Permissions and privacy
+
+| Permission | What it's for |
+| --- | --- |
+| `storage` | your switches, words and picked rules, in the browser's local extension storage (not synced through a browser account) |
+| `scripting` | putting each picked rule into its page as a stylesheet the site's own scripts can't read |
+| `facebook.com`, `messenger.com`, `reddit.com`, `x.com`, `twitter.com`, `linkedin.com`, `instagram.com`, `tiktok.com`, `twitch.tv`, `pixiv.net`, `mangadex.org` | the content script that hides things on those sites; xrnsocial runs nowhere else |
+
+xrnsocial makes no network requests of its own: no analytics, no remote
+rules, no account, and the font ships with it. A backup is a file you
+download; nothing else leaves the browser. The popup's counts come from the
+open tab, by a message inside the browser.
+
+What a site can still see is under [Known limits](#known-limits): that
+something is hidden, but not your words or the accounts you picked.
 
 ## Build
 
 There is no compile step: the folder is the extension. Building packs
-`manifest.json`, `icons/` and `src/` into **`xrnsocial.zip`**, the file the
+`manifest.json`, `icons/`, `fonts/` and `src/` into **`xrnsocial.zip`**, the file the
 Chrome Web Store and addons.mozilla.org take. It needs
 [Node.js](https://nodejs.org) and nothing else: no zip tool, and no
 `npm install`.
@@ -152,6 +219,16 @@ npm run test:firefox
 signed-in sites in a browser you sign in to yourself. Each script's header
 comment explains how to run it.
 
+CI (`.github/workflows/ci.yml`) runs all three suites on every push to
+`main` and every pull request.
+
+The screenshots in this README come from headless Chromium with the unpacked
+extension and made-up settings. The popup is the real one, pointed at a tab
+showing `test/fixtures/reddit.html` (the mock page `npm run test:browser`
+serves at reddit.com, with plain card styling added so its posts read); the
+picker and the "show" bars are on that same page, and nothing reached a real
+site.
+
 ## How it works
 
 - **One stylesheet**, injected before the page draws, hides everything CSS
@@ -174,6 +251,28 @@ comment explains how to run it.
 Each site's rules live in `src/sites/<site>.js`. The engine
 (`src/content/engine.js`), the picker, the popup and storage are shared by
 all of them.
+
+## Troubleshooting
+
+- **Nothing is hidden on a tab.** Reload it: the content script attaches
+  when a page loads, so a tab opened before installing or updating has none.
+  The popup's **Hide something** says **Reload tab** in that case. In
+  Firefox, also check `about:addons` → xrnsocial → **Permissions**.
+- **Everything came back.** Check for a pause (the toolbar icon says `off`,
+  and the popup offers **Resume**) and for the site's own switch beside its
+  name.
+- **One thing came back.** The site changed. Open its group in the popup:
+  a switch with no count is matching nothing on this page. Hide it with the
+  picker meanwhile.
+- **A picked rule says "broken"** (or "none here"). "Broken" means the
+  browser no longer reads its selector; "none here" that it matches nothing
+  on this page; "other page" that it's set to *Only* another page. Pick the
+  thing again and delete the old rule.
+- **A picked rule hides too much.** On the Picked screen, set it to *Only*
+  the page you picked it on, switch it off, or delete it (Undo brings it
+  back for five seconds).
+- **"Not saved".** The browser refused to store the change, so nothing was
+  changed; try again.
 
 ## Known limits
 
@@ -214,6 +313,8 @@ src/options/     backup and restore
 fonts/           MiSans Latin, the popup's and options page's font
 scripts/zip.js   packs the extension (npm run zip)
 test/            jsdom, Chrome and Firefox tests, with fixture pages
+docs/screenshots the pictures in this README
+.github/         CI
 ```
 
 ## History
@@ -225,8 +326,12 @@ BlockDistractXrn. Backups saved under either name still restore.
 
 [MIT](LICENSE)
 
-The site logos in `src/popup/sites/` are trademarks of their owners and are
-here only to name the sites. xrnsocial has no connection with any of them.
+Facebook, Messenger, Instagram, Reddit, X, LinkedIn, TikTok, Twitch, pixiv
+and MangaDex are trademarks of their owners. Their logos in
+`src/popup/sites/` (each site's own logo, and its symbol in white on
+xrnsocial's tile) and the popup picture above are here only to name the
+sites. xrnsocial has no connection with any of them and isn't endorsed by
+them.
 
 The popup and the options page use [MiSans](https://hyperos.mi.com/font) by
 Xiaomi, free for commercial use and embedded here under its terms. The file
