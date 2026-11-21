@@ -333,7 +333,7 @@ src/content/     engine, picker, and the bootstrap that runs on each site
 src/background/  keyboard shortcuts, the toolbar badge, picked rules' stylesheets
 src/popup/       the popup, with each site's icons in src/popup/sites/
 src/options/     backup and restore
-fonts/           MiSans Latin, the popup's and options page's font
+fonts/           MiSans Latin, the popup's and options page's font, and its licence note
 scripts/zip.js   packs the extension (npm run zip)
 test/            jsdom, Chrome and Firefox tests, with fixture pages
 docs/screenshots the pictures in this README
@@ -357,6 +357,10 @@ xrnsoc's tile) and the popup picture above are here only to name the
 sites. xrnsoc has no connection with any of them and isn't endorsed by
 them.
 
-The popup and the options page use [MiSans](https://hyperos.mi.com/font) by
-Xiaomi, free for commercial use and embedded here under its terms. The file
-ships with the extension, so no font is fetched from anywhere.
+The popup and the options page are set in MiSans. MiSans by Xiaomi, used
+under the MiSans font licence (free for commercial use when the software
+notes that it uses MiSans). The font files are not covered by this
+repository's licence. https://hyperos.mi.com/font/en/
+
+The font file, and `fonts/README.md` with the same note, ship with the
+extension, so no font is fetched from anywhere.
