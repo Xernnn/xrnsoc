@@ -711,6 +711,13 @@ console.log('\nthe background page');
    * granted on any other site. */
   ok('…and for nothing it does not use', JSON.stringify(manifest.permissions.slice().sort()) === '["scripting","storage"]',
     JSON.stringify(manifest.permissions));
+  /* package.json stayed at 2.0.3 while the manifest went on to 2.0.6: the
+   * version lives in three files, and a bump has to reach them all. */
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const lock = JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8'));
+  const versions = [manifest.version, pkg.version, lock.version, lock.packages[''].version];
+  ok('package.json and its lockfile carry the manifest\'s version', versions.every(v => v === manifest.version),
+    'manifest, package.json, lockfile: ' + versions.join(' / '));
   /* The tab's side: it names the sheets whose answer was lost. */
   {
     const w = boot(PAGE);
