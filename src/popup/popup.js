@@ -207,7 +207,7 @@ function countOn() {
 
 /* ---------------------------------------------------------------- icons -- */
 
-/* A site xrnsocial is working on wears xrnsocial's colours; one it has been
+/* A site xrnsoc is working on wears xrnsoc's colours; one it has been
  * told to leave alone shows its own logo again. */
 function takenOver(id) {
   var mine = state.sites[id];

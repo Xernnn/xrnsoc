@@ -2,7 +2,7 @@
   <img src="icons/icon128.png" width="72" height="72" alt="">
 </p>
 
-<h1 align="center">xrnsocial</h1>
+<h1 align="center">xrnsoc</h1>
 
 A browser extension that hides the distracting parts of social sites: ads,
 suggested posts, Reels, sidebars, counts and red badges. Switch off what you
@@ -32,7 +32,7 @@ Nothing leaves your browser: no network requests, no analytics, no accounts.
   X, LinkedIn, Instagram and TikTok have *Stop autoplay*, which pauses a
   video that starts on its own and never one you started.
 - **One switch per site.** The switch beside the site's name turns
-  xrnsocial off on that site only. The name opens the Sites screen, which
+  xrnsoc off on that site only. The name opens the Sites screen, which
   shows every site and switches the popup to another one.
 - **Picker.** Press `Alt+Shift+H` (or **Hide something** in the popup) and
   click anything to hide it. `↑` and `↓` take the part around it or inside
@@ -56,8 +56,8 @@ Nothing leaves your browser: no network requests, no analytics, no accounts.
 - **Match counts.** The popup shows how many things each switch is hiding
   on the current page, and flags picked rules that match nothing here, are
   for another page, or that the browser can't read any more.
-- **A popup that shows what it's doing.** A site xrnsocial is working on
-  wears xrnsocial's colours, with the site's symbol in white. Switch the site
+- **A popup that shows what it's doing.** A site xrnsoc is working on
+  wears xrnsoc's colours, with the site's symbol in white. Switch the site
   off or pause, and it gets its own logo back.
 - **Backup and restore.** All settings go into one file and come back from
   it (More → *Back up or restore*). **Reset** puts every site back to its
@@ -103,7 +103,7 @@ has no ad switch yet. Every other switch starts off.
 
 ### Chrome, Edge, Brave and other Chromium browsers
 
-1. Get the code: `git clone https://github.com/Xernnn/xrnsocial.git`, or on
+1. Get the code: `git clone https://github.com/Xernnn/xrnsoc.git`, or on
    GitHub choose **Code → Download ZIP** and extract it.
 2. Open `chrome://extensions` (`edge://extensions` in Edge) and turn on
    **Developer mode**.
@@ -116,11 +116,11 @@ To keep it installed, in Zen or another build that allows unsigned add-ons
 (Developer Edition, Nightly, some forks):
 
 1. In `about:config`, set `xpinstall.signatures.required` to `false`.
-2. Build `xrnsocial.zip` as shown under [Build](#build) and rename it to
-   `xrnsocial.xpi`.
+2. Build `xrnsoc.zip` as shown under [Build](#build) and rename it to
+   `xrnsoc.xpi`.
 3. `about:addons` → ⚙ → **Install Add-on From File…** → that file.
 4. Reload any tabs of supported sites that were already open. If nothing is
-   hidden, open `about:addons` → xrnsocial → **Permissions** and allow it
+   hidden, open `about:addons` → xrnsoc → **Permissions** and allow it
    on the sites.
 
 An installed `.xpi` doesn't update itself: build and install the next
@@ -134,8 +134,29 @@ temporary add-on when it closes.
 ### On a phone
 
 A Chromium browser that takes extensions, such as Quetta on Android, installs
-`xrnsocial.zip` from its extensions page. The picker works by touch there
+`xrnsoc.zip` from its extensions page. The picker works by touch there
 (see Features). There is no self-update: install a newer zip by hand.
+
+### Coming from xrnsocial
+
+Up to 2.0.6 the extension was called xrnsocial. 2.1.0 renamed it xrnsoc
+and gave it a new Firefox add-on id, `xrnsoc@xern.dev`, so Firefox and
+Zen install it next to the old add-on rather than over it, with nothing
+set. To bring your settings across:
+
+1. In xrnsocial: popup → **More** → **Back up or restore** →
+   **Download backup**.
+2. Install xrnsoc as above.
+3. In xrnsoc: popup → **More** → **Back up or restore**, choose that file,
+   then **Restore this backup**.
+4. Remove xrnsocial (`about:addons` → xrnsocial → ⋯ → **Remove**), so the
+   two don't both act on the same pages.
+
+In a Chromium browser, a copy loaded unpacked keeps its settings when you
+update its folder in place: the id comes from the folder, and the settings
+are stored under the same key as before. A copy loaded from another folder,
+or a zip that a phone browser lists as a second extension, starts empty;
+the same backup and restore brings the settings across.
 
 ## Permissions and privacy
 
@@ -143,9 +164,9 @@ A Chromium browser that takes extensions, such as Quetta on Android, installs
 | --- | --- |
 | `storage` | your switches, words and picked rules, in the browser's local extension storage (not synced through a browser account) |
 | `scripting` | putting each picked rule into its page as a stylesheet the site's own scripts can't read |
-| `facebook.com`, `messenger.com`, `reddit.com`, `x.com`, `twitter.com`, `linkedin.com`, `instagram.com`, `tiktok.com`, `twitch.tv`, `pixiv.net`, `mangadex.org` | the content script that hides things on those sites; xrnsocial runs nowhere else |
+| `facebook.com`, `messenger.com`, `reddit.com`, `x.com`, `twitter.com`, `linkedin.com`, `instagram.com`, `tiktok.com`, `twitch.tv`, `pixiv.net`, `mangadex.org` | the content script that hides things on those sites; xrnsoc runs nowhere else |
 
-xrnsocial makes no network requests of its own: no analytics, no remote
+xrnsoc makes no network requests of its own: no analytics, no remote
 rules, no account, and the font ships with it. A backup is a file you
 download; nothing else leaves the browser. The popup's counts come from the
 open tab, by a message inside the browser.
@@ -156,7 +177,7 @@ something is hidden, but not your words or the accounts you picked.
 ## Build
 
 There is no compile step: the folder is the extension. Building packs
-`manifest.json`, `icons/`, `fonts/` and `src/` into **`xrnsocial.zip`**, the file the
+`manifest.json`, `icons/`, `fonts/` and `src/` into **`xrnsoc.zip`**, the file the
 Chrome Web Store and addons.mozilla.org take. It needs
 [Node.js](https://nodejs.org) and nothing else: no zip tool, and no
 `npm install`.
@@ -165,8 +186,8 @@ Chrome Web Store and addons.mozilla.org take. It needs
 
 ```sh
 # Install Node.js from your package manager or nodejs.org, then:
-git clone https://github.com/Xernnn/xrnsocial.git
-cd xrnsocial
+git clone https://github.com/Xernnn/xrnsoc.git
+cd xrnsoc
 npm run zip
 ```
 
@@ -174,8 +195,8 @@ npm run zip
 
 ```powershell
 winget install OpenJS.NodeJS.LTS   # if Node.js isn't installed yet; open a new terminal afterwards
-git clone https://github.com/Xernnn/xrnsocial.git   # or Download ZIP and extract it
-cd xrnsocial
+git clone https://github.com/Xernnn/xrnsoc.git   # or Download ZIP and extract it
+cd xrnsoc
 npm run zip
 ```
 
@@ -257,7 +278,7 @@ all of them.
 - **Nothing is hidden on a tab.** Reload it: the content script attaches
   when a page loads, so a tab opened before installing or updating has none.
   The popup's **Hide something** says **Reload tab** in that case. In
-  Firefox, also check `about:addons` → xrnsocial → **Permissions**.
+  Firefox, also check `about:addons` → xrnsoc → **Permissions**.
 - **Everything came back.** Check for a pause (the toolbar icon says `off`,
   and the popup offers **Resume**) and for the site's own switch beside its
   name.
@@ -319,8 +340,9 @@ docs/screenshots the pictures in this README
 
 ## History
 
-xrnsocial started as BlockFB, for Facebook only, and was then called
-BlockDistractXrn. Backups saved under either name still restore.
+xrnsoc started as BlockFB, for Facebook only, and was then called
+BlockDistractXrn, and xrnsocial until 2.1.0. Backups saved under any of
+those names still restore.
 
 ## License
 
@@ -329,8 +351,8 @@ BlockDistractXrn. Backups saved under either name still restore.
 Facebook, Messenger, Instagram, Reddit, X, LinkedIn, TikTok, Twitch, pixiv
 and MangaDex are trademarks of their owners. Their logos in
 `src/popup/sites/` (each site's own logo, and its symbol in white on
-xrnsocial's tile) and the popup picture above are here only to name the
-sites. xrnsocial has no connection with any of them and isn't endorsed by
+xrnsoc's tile) and the popup picture above are here only to name the
+sites. xrnsoc has no connection with any of them and isn't endorsed by
 them.
 
 The popup and the options page use [MiSans](https://hyperos.mi.com/font) by

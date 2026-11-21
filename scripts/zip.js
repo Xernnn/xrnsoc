@@ -1,4 +1,4 @@
-/* npm run zip: packs manifest.json, icons/, fonts/ and src/ into xrnsocial.zip, the
+/* npm run zip: packs manifest.json, icons/, fonts/ and src/ into xrnsoc.zip, the
  * file the Chrome Web Store and addons.mozilla.org take.
  *
  * Plain Node with no dependencies, so it works the same on Windows, Linux and
@@ -10,7 +10,7 @@ const path = require('path');
 const zlib = require('zlib');
 
 const ROOT = path.join(__dirname, '..');
-const OUT = 'xrnsocial.zip';
+const OUT = 'xrnsoc.zip';
 const INCLUDE = ['manifest.json', 'icons', 'fonts', 'src'];
 const JUNK = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini']);
 
