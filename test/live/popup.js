@@ -31,7 +31,7 @@ const ok = (label, cond, detail) => { if (!cond) failures++; console.log((cond ?
      * open the tab as well. */
     const ext = await workTab(browser, 'chrome://extensions/');
     await sleep(500);
-    const extId = await ext.evaluate(app => new Promise(r => chrome.management.getAll(l => r((l.find(e => e.name === app) || {}).id))), 'xrnsocial');
+    const extId = await ext.evaluate(app => new Promise(r => chrome.management.getAll(l => r((l.find(e => e.name === app) || {}).id))), 'xrnsoc');
     const url = 'chrome-extension://' + extId + '/src/popup/popup.html';
     await ext.goto('chrome-extension://' + extId + '/src/options/options.html');
     const { windowId } = await (await page.createCDPSession()).send('Browser.getWindowForTarget');
@@ -57,7 +57,7 @@ const ok = (label, cond, detail) => { if (!cond) failures++; console.log((cond ?
     const v = await view();
     ok(`the popup opens on ${name}, marked as this tab's site`, v.chosen === name && v.here === name, JSON.stringify(v.chosen + ' / ' + v.here));
     ok(`the hero reads "${v.status}"`, /^\d+ hidden here$/.test(v.status));
-    ok(`${name} wears the xrnsocial icon`, v.icon === 'sites/' + siteId + '-on.svg', v.icon);
+    ok(`${name} wears the xrnsoc icon`, v.icon === 'sites/' + siteId + '-on.svg', v.icon);
     ok(`${name}'s own groups are listed: ${v.groups.join(', ')}`, v.groups.length > 1);
 
     /* Counts show only on switches that hide something on this page. */

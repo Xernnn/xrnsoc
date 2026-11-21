@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "xrnsocial",
-  "version": "2.0.6",
+  "name": "xrnsoc",
+  "version": "2.1.0",
   "description": "Switch off the distracting parts of Facebook, Reddit, X, LinkedIn, Instagram, TikTok, Twitch, pixiv and MangaDex: ads, suggestions, reels, sidebars — or point and click to hide anything else.",
   "permissions": [
     "storage",
@@ -22,7 +22,7 @@
   ],
   "action": {
     "default_popup": "src/popup/popup.html",
-    "default_title": "xrnsocial",
+    "default_title": "xrnsoc",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -97,13 +97,18 @@
       "suggested_key": {
         "default": "Alt+Shift+B"
       },
-      "description": "Pause or resume every xrnsocial rule"
+      "description": "Pause or resume every xrnsoc rule"
     }
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "xrnsocial@sonn.dev",
-      "strict_min_version": "128.0"
+      "id": "xrnsoc@xern.dev",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
     }
   }
 }

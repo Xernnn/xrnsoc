@@ -403,7 +403,7 @@ console.log('\npicked rules that leave something open');
     closed.every(sel => S.validSelector(sel)), 'refused: ' + closed.filter(sel => !S.validSelector(sel)).join('  '));
 
   const smuggle = [{ selector: 'a/*' }, { selector: '[title="*/, body{background:url(https://example.invalid/t)} x"]' }];
-  const imported = S.fromBackup({ app: 'xrnsocial', version: 2, settings: { sites: { facebook: { custom: smuggle } } } })
+  const imported = S.fromBackup({ app: 'xrnsoc', version: 2, settings: { sites: { facebook: { custom: smuggle } } } })
     .sites.facebook.custom.map(r => r.selector);
   ok('a backup that splits CSS over two picked rules loses the one that opens a comment',
     imported.length === 1 && imported[0] === smuggle[1].selector, JSON.stringify(imported));
@@ -664,7 +664,7 @@ console.log('\nthe background page');
   let writes = 0;
   const none = { addListener: () => {} };
   const chrome = {
-    runtime: { id: 'xrnsocial', onMessage: { addListener: fn => { onMessage = fn; } }, onInstalled: { addListener: fn => { onInstalled = fn; } }, onStartup: none },
+    runtime: { id: 'xrnsoc', onMessage: { addListener: fn => { onMessage = fn; } }, onInstalled: { addListener: fn => { onInstalled = fn; } }, onStartup: none },
     storage: { local: { get: (k, cb) => cb({}), set: (o, cb) => { writes++; if (cb) cb(); } }, onChanged: none },
     commands: { onCommand: none },
     action: { setBadgeText: () => {}, setBadgeBackgroundColor: () => {} },
@@ -702,7 +702,7 @@ console.log('\nthe background page');
   const next = calls.splice(0);
   ok('Firefox names no document: then it is the frame that sent it', !!firefoxTab && firefoxTab.ok && next.length === 2 &&
     next.every(([, d]) => JSON.stringify(d.target) === '{"tabId":7,"frameIds":[0]}'), JSON.stringify(next));
-  const fromPopup = await ask(Object.assign({ type: 'bfx:css' }, css), { id: 'xrnsocial', url: 'chrome-extension://x/src/popup/popup.html' });
+  const fromPopup = await ask(Object.assign({ type: 'bfx:css' }, css), { id: 'xrnsoc', url: 'chrome-extension://x/src/popup/popup.html' });
   ok('a message from anywhere but a tab injects nothing', fromPopup === null && calls.length === 0, JSON.stringify(calls));
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
   ok('the manifest asks for the scripting permission it needs', manifest.permissions.includes('scripting'));
@@ -711,6 +711,20 @@ console.log('\nthe background page');
    * granted on any other site. */
   ok('…and for nothing it does not use', JSON.stringify(manifest.permissions.slice().sort()) === '["scripting","storage"]',
     JSON.stringify(manifest.permissions));
+  /* package.json stayed at 2.0.3 while the manifest went on to 2.0.6: the
+   * version lives in three files, and a bump has to reach them all. */
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const lock = JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8'));
+  const versions = [manifest.version, pkg.version, lock.version, lock.packages[''].version];
+  ok('package.json and its lockfile carry the manifest\'s version', versions.every(v => v === manifest.version),
+    'manifest, package.json, lockfile: ' + versions.join(' / '));
+  /* addons.mozilla.org wants new listings to say what they collect; Firefox
+   * 140 and newer show it when installing. Older Firefox ignores the key, so
+   * the minimum stays 128 (npm run test:firefox loads it). */
+  const gecko = manifest.browser_specific_settings.gecko;
+  ok('the Firefox settings say no data is collected, and Firefox 128 is still the minimum',
+    gecko.id === 'xrnsoc@xern.dev' && gecko.strict_min_version === '128.0' &&
+    JSON.stringify(gecko.data_collection_permissions) === '{"required":["none"]}', JSON.stringify(gecko));
   /* The tab's side: it names the sheets whose answer was lost. */
   {
     const w = boot(PAGE);
@@ -1080,6 +1094,38 @@ for (const app of ['XrnSocial', 'BlockDistractXrn']) {
   const renamed = BFX_STORE.fromBackup(Object.assign(BFX_STORE.toBackup(mine), { app }));
   ok('a backup saved as ' + app + ' restores the same settings', JSON.stringify(renamed) === JSON.stringify(mine));
 }
+/* A file from the last xrnsocial (2.0.6), written out as its Download backup
+ * wrote it rather than made by today's toBackup(). In Zen the rename is a new
+ * add-on id with empty storage, and this file is how the settings get across. */
+ok('a new backup is marked as xrnsoc\'s', BFX_STORE.toBackup(mine).app === 'xrnsoc');
+const xrnsocialFile = `{
+  "app": "xrnsocial",
+  "version": 2,
+  "exportedAt": "2026-11-20T09:14:03.512Z",
+  "settings": {
+    "enabled": true,
+    "placeholders": true,
+    "keywords": { "enabled": true, "terms": ["giveaway", "/crypto|nft/i"] },
+    "sites": {
+      "facebook": { "enabled": true, "presets": { "sponsored": true, "reels": false }, "custom": [], "remembered": { "Feed": ["reels"] } },
+      "reddit": { "enabled": false, "presets": { "promoted": true, "recommended": true }, "remembered": {}, "custom": [
+        { "id": "c1", "selector": "shreddit-post[subreddit-prefixed-name=\\"r/cats\\"]", "label": "Posts from r/cats",
+          "scope": "path", "path": "/r/all/", "enabled": false, "createdAt": 1763600000000 }
+      ] }
+    }
+  }
+}`;
+let fromXrnsocial = null;
+try { fromXrnsocial = BFX_STORE.fromBackup(JSON.parse(xrnsocialFile)); } catch (e) { fromXrnsocial = e.message; }
+const oldReddit = fromXrnsocial && fromXrnsocial.sites ? fromXrnsocial.sites.reddit : {};
+ok('a backup made by xrnsocial, before the rename, restores into xrnsoc',
+  typeof fromXrnsocial === 'object' && fromXrnsocial.placeholders === true &&
+  JSON.stringify(fromXrnsocial.keywords) === '{"enabled":true,"terms":["giveaway","/crypto|nft/i"]}' &&
+  fromXrnsocial.sites.facebook.presets.reels === false && fromXrnsocial.sites.facebook.remembered.Feed[0] === 'reels' &&
+  oldReddit.enabled === false && oldReddit.presets.recommended === true && oldReddit.custom.length === 1 &&
+  oldReddit.custom[0].selector === 'shreddit-post[subreddit-prefixed-name="r/cats"]' &&
+  oldReddit.custom[0].scope === 'path' && oldReddit.custom[0].path === '/r/all/' && oldReddit.custom[0].enabled === false,
+  JSON.stringify(fromXrnsocial));
 const v2 = BFX_STORE.fromBackup(BFX_STORE.toBackup(Object.assign(BFX_STORE.merge(null), { sites: { facebook: { enabled: false, presets: { feed: true }, custom: [] }, nowhere: { presets: { a: true } } } })));
 ok('a new backup restores per site, and drops sites that do not exist', v2.sites.facebook.enabled === false &&
   v2.sites.facebook.presets.feed === true && !('nowhere' in v2.sites));

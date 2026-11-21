@@ -17,7 +17,7 @@
   'use strict';
 
   var KEY = 'bfx';
-  var APP = 'xrnsocial';
+  var APP = 'xrnsoc';
 
   var DEFAULTS = {
     enabled: true,
@@ -385,10 +385,12 @@
 
   /* Rebuild settings from an exported file field by field, so a hand-edited
    * or foreign file can only ever produce a well-formed state. Files saved
-   * under the extension's earlier names are still ours: "XrnSocial" and
-   * "BlockDistractXrn" (same shape as today's) and "BlockFB" (one site,
-   * restored into Facebook). Throws with a message fit to show the person. */
-  var OLD_APPS = ['XrnSocial', 'BlockDistractXrn', 'BlockFB'];
+   * under the extension's earlier names are still ours: "xrnsocial" (until
+   * 2.1.0, when the new name came with a new Firefox add-on id, so a backup
+   * is how settings move across), "XrnSocial" and "BlockDistractXrn" (same
+   * shape as today's) and "BlockFB" (one site, restored into Facebook).
+   * Throws with a message fit to show the person. */
+  var OLD_APPS = ['xrnsocial', 'XrnSocial', 'BlockDistractXrn', 'BlockFB'];
 
   function fromBackup(data) {
     var s = data && (data.app === APP || OLD_APPS.indexOf(data.app) !== -1) ? data.settings : data;
