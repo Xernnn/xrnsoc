@@ -169,7 +169,9 @@ the same backup and restore brings the settings across.
 xrnsoc makes no network requests of its own: no analytics, no remote
 rules, no account, and the font ships with it. A backup is a file you
 download; nothing else leaves the browser. The popup's counts come from the
-open tab, by a message inside the browser.
+open tab, by a message inside the browser. The manifest says the same to
+Firefox (`data_collection_permissions`: none), which Firefox 140 and newer
+show when installing; older versions ignore it.
 
 What a site can still see is under [Known limits](#known-limits): that
 something is hidden, but not your words or the accounts you picked.

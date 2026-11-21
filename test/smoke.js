@@ -718,6 +718,13 @@ console.log('\nthe background page');
   const versions = [manifest.version, pkg.version, lock.version, lock.packages[''].version];
   ok('package.json and its lockfile carry the manifest\'s version', versions.every(v => v === manifest.version),
     'manifest, package.json, lockfile: ' + versions.join(' / '));
+  /* addons.mozilla.org wants new listings to say what they collect; Firefox
+   * 140 and newer show it when installing. Older Firefox ignores the key, so
+   * the minimum stays 128 (npm run test:firefox loads it). */
+  const gecko = manifest.browser_specific_settings.gecko;
+  ok('the Firefox settings say no data is collected, and Firefox 128 is still the minimum',
+    gecko.id === 'xrnsoc@xern.dev' && gecko.strict_min_version === '128.0' &&
+    JSON.stringify(gecko.data_collection_permissions) === '{"required":["none"]}', JSON.stringify(gecko));
   /* The tab's side: it names the sheets whose answer was lost. */
   {
     const w = boot(PAGE);
