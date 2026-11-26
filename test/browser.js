@@ -734,6 +734,9 @@ async function until(fn, timeout = 3000) {
     ok('reels go by default, with the menu item; ordinary posts stay', await isHidden('a-reel') && await isHidden('menu-reels') &&
       !(await isHidden('a-plain')) && !(await isHidden('a-video')) && !(await isHidden('a-suggested')));
     ok('the Messages badge goes', await isHidden('badge'));
+    ok('accounts suggested to follow go by default, in the feed and the right column; your own row and the footer stay',
+      await until(() => isHidden('feed-suggestions')) && await isHidden('right-suggestions') &&
+      !(await isHidden('me-row')) && !(await isHidden('right-footer')) && !(await isHidden('right-column')));
     await page.goto('https://www.instagram.com/reels/', { waitUntil: 'domcontentloaded' });
     ok('the Reels tab with Reels on lands on the feed', await until(() => page.evaluate(() => location.pathname === '/'), 5000));
 
@@ -771,7 +774,8 @@ async function until(fn, timeout = 3000) {
       ['stories', 'the stories tray', ['stories'], ['posts']],
       ['postActions', 'the button row', ['actions-plain'], ['media-plain', 'likes-plain']],
       ['counts', 'the counts, not the buttons', ['count-likes', 'likes-plain'], ['actions-plain']],
-      ['rightSidebar', 'the right column', ['right-column'], ['posts']],
+      ['rightSidebar', 'the right column', ['right-column'], ['posts', 'feed-suggestions']],
+      ['suggestedAccounts', 'the accounts suggested in the feed and the right column', ['feed-suggestions', 'right-suggestions'], ['posts', 'me-row', 'right-footer']],
       ['threadsLink', 'the Threads link', ['menu-threads'], ['menu-messages']]
     ];
     for (const [id, what, hide, keep] of igCases) {

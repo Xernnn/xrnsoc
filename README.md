@@ -83,7 +83,7 @@ Nothing leaves your browser: no network requests, no analytics, no accounts.
 | Reddit | 23 | 6 | Checked on the live site, October 2026 |
 | X | 24 | 5 | Checked on the live site, October 2026 |
 | LinkedIn | 19 | 3 | Checked on the live site, October 2026 |
-| Instagram | 13 | 3 | Checked on the live site, October 2026 |
+| Instagram | 14 | 4 | Checked on the live site, October 2026 |
 | Twitch | 14 | 4 | Checked on the live site, October 2026 |
 | TikTok | 7 | 1 | Partial: mapped while signed out, no ad switch yet |
 | pixiv | 4 | 2 | Checked on the live site while signed out, computer and phone layouts, November 2026 |
@@ -94,7 +94,7 @@ has them. On top of that, Facebook hides Reels, suggested posts and "people
 you may know" (with Reels on, a reel link lands on the home feed); Reddit
 hides recommended posts and community suggestions; X hides promoted trends,
 "who to follow" and Premium offers; LinkedIn hides Premium offers;
-Instagram hides recommended Reels; Twitch hides Prime and Bits offers and
+Instagram hides recommended Reels and suggested accounts; Twitch hides Prime and Bits offers and
 recommended channels; pixiv hides Premium offers; and MangaDex hides its
 "Advertise" link. TikTok starts with only *Coins and CapCut* on, since it
 has no ad switch yet. Every other switch starts off.
@@ -314,6 +314,9 @@ all of them.
   have no switches yet.
 - **Instagram:** only the home feed is mapped, so ads in Stories, Explore and
   the Reels tab aren't covered.
+- **Built against made-up pages, not yet checked on the live sites:**
+  Instagram's *Suggested accounts*. `test/live/check.js` checks it on a
+  signed-in browser.
 - **Reddit:** the picker can't reach inside Reddit's own components (votes,
   counts, share). Use the switches for those.
 - **Facebook Story ads** are untested: the story viewer couldn't be stepped

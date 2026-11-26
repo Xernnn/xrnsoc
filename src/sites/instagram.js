@@ -18,6 +18,9 @@
  *   - the stories tray sits above the feed and the right column beside it;
  *     neither has a hook, so each is found by what it holds (a canvas ring,
  *     the /explore/people/ link) as the largest box without the feed in it
+ *   - "Suggested for you", accounts to follow, is a box with a "See all"
+ *     link to /explore/people/ and a Follow button per account, in the
+ *     right column and now and then between posts
  */
 (function (root) {
   'use strict';
@@ -52,6 +55,12 @@
       group: 'Feed',
       label: "Strangers' posts",
       js: { kind: 'suggested' }
+    },
+    {
+      id: 'suggestedAccounts',
+      group: 'Feed',
+      on: true,
+      label: 'Suggested accounts'
     },
     {
       id: 'videoPosts',
@@ -109,6 +118,12 @@
 
   /* --------------------------------------------------------- helpers ---- */
 
+  /* A button with words and no picture: Follow, Following. The "…" button
+   * is an icon, the avatar a canvas. */
+  function isTextButton(b) {
+    return !b.querySelector('svg, canvas, img') && !!(b.textContent || '').trim();
+  }
+
   /* The header row: the smallest box around the post's first icon button
    * (the "…") that also holds the avatar, whose story ring is a canvas. */
   function headerOf(post) {
@@ -151,8 +166,7 @@
       if (!header) return false;
       var buttons = header.querySelectorAll('[role="button"], button');
       for (var i = 0; i < buttons.length; i++) {
-        var b = buttons[i];
-        if (!b.querySelector('svg, canvas, img') && (b.textContent || '').trim()) return true;
+        if (isTextButton(buttons[i])) return true;
       }
       return false;
     }
@@ -160,16 +174,57 @@
 
   /* --------------------------------------------------------- globals ---- */
 
+  /* The smallest box holding every post on the page. */
+  function postsBox(main) {
+    var posts = main.querySelectorAll(POST);
+    var box = posts.length ? posts[0].parentElement : null;
+    while (box && box !== main && !box.contains(posts[posts.length - 1])) box = box.parentElement;
+    return box;
+  }
+
   /* The largest box around a mark that holds no post: the stories tray
-   * above the feed, the right column beside it. */
-  function besideFeed(id, markSelector) {
+   * above the feed, the right column beside it. With `notBetween`, a mark
+   * between the posts is not the one: the accounts suggested in the feed
+   * have the same link as the right column's. */
+  function besideFeed(id, markSelector, notBetween) {
     return function (api) {
       var main = document.querySelector('main');
-      var mark = main && main.querySelector(markSelector);
-      if (!mark || !main.querySelector(POST)) return;
-      var block = api.blockOf(mark, POST, main);
-      if (block) api.hide(block, id);
+      if (!main || !main.querySelector(POST)) return;
+      var posts = notBetween ? postsBox(main) : null;
+      var marks = main.querySelectorAll(markSelector);
+      for (var i = 0; i < marks.length; i++) {
+        if (posts && posts !== main && posts.contains(marks[i])) continue;
+        var block = api.blockOf(marks[i], POST, main);
+        if (block) api.hide(block, id);
+        return;
+      }
     };
+  }
+
+  /* "Suggested for you": the smallest box around its link to
+   * /explore/people/ that also holds a Follow button. A climb that reaches
+   * a post, the main column or a dialog gives up: those are never one
+   * box of suggestions. */
+  var PEOPLE = 'a[href^="/explore/people/"]';
+
+  function suggestionsOf(link) {
+    for (var node = link.parentElement; node && node !== document.body; node = node.parentElement) {
+      if (node.matches('main, [role="main"], [role="dialog"]') || node.querySelector(POST)) return null;
+      var buttons = node.querySelectorAll('[role="button"], button');
+      for (var i = 0; i < buttons.length; i++) {
+        if (!link.contains(buttons[i]) && isTextButton(buttons[i])) return node;
+      }
+    }
+    return null;
+  }
+
+  function hideSuggestedAccounts(api) {
+    if (inMessages()) return;
+    document.querySelectorAll(PEOPLE).forEach(function (link) {
+      if (link.closest(api.HIDDEN) || link.closest('[role="dialog"]')) return;
+      var box = suggestionsOf(link);
+      if (box) api.hide(box, 'suggestedAccounts');
+    });
   }
 
   /* Counts on the menu's Messages and Notifications entries: digit-only
@@ -285,7 +340,8 @@
     globals: {
       reels: holdReel,
       stories: besideFeed('stories', 'ul canvas'),
-      rightSidebar: besideFeed('rightSidebar', 'a[href^="/explore/people/"]'),
+      rightSidebar: besideFeed('rightSidebar', PEOPLE, true),
+      suggestedAccounts: hideSuggestedAccounts,
       badges: stripBadges
     },
     /* With Reels on, the Reels tab itself sends you to the feed. A single

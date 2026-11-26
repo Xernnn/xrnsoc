@@ -1625,6 +1625,11 @@ console.log('\ninstagram.com as of October 2026 (test/fixtures/instagram.html)')
   ok('recommended reels are hidden by default in the feed, with the Reels menu item', by('a-reel') === 'reels' && sheet().includes('a[href="/reels/"]:not(#bfx-z){display:none'), 'got ' + by('a-reel'));
   ok('ordinary and suggested posts stay by default', ['a-plain', 'a-suggested', 'a-video', 'a-kw'].every(shown));
   ok('the Messages badge goes, and the tab title count', by('badge') === 'badges' && w.document.title === 'Instagram');
+  ok('accounts suggested to follow go by default, between the posts and in the right column',
+    by('feed-suggestions') === 'suggestedAccounts' && by('right-suggestions') === 'suggestedAccounts',
+    'got ' + by('feed-suggestions') + ', ' + by('right-suggestions'));
+  ok('…and only those boxes: the posts, your own account row and the footer stay',
+    ['a-plain', 'a-suggested', 'posts', 'me-row', 'right-footer', 'right-column'].every(shown));
   const ig = path => w.BFX_ENGINE.redirectFor(S.merge(null), { hostname: 'www.instagram.com', pathname: path });
   ok('with Reels on, the Reels tab sends you to the feed', ig('/reels/') === '/' && ig('/reels') === '/');
   ok('…but a single reel, from a message or a link, still opens', ig('/reels/CCC/') === null && ig('/reel/CCC/') === null && ig('/reels/audio/123/') === null);
@@ -1634,6 +1639,7 @@ console.log('\ninstagram.com as of October 2026 (test/fixtures/instagram.html)')
   const dmHidden = Array.from(dm.document.querySelectorAll('article[data-bfx-hidden-by], article [data-bfx-hidden-by]'));
   ok('in messages nothing is hidden: a reel or a word someone sent you is yours to see', !dmHidden.length,
     dmHidden.map(e => e.id + ':' + e.getAttribute('data-bfx-hidden-by')).join());
+  ok('nor are accounts someone suggests there', !dm.document.querySelector('[data-bfx-hidden-by="suggestedAccounts"]'));
 
   w.BFX_ENGINE.apply(only(['suggested']));
   await frame();
@@ -1643,8 +1649,13 @@ console.log('\ninstagram.com as of October 2026 (test/fixtures/instagram.html)')
   await frame();
   ok('the stories tray and the right column go as whole blocks, the posts stay',
     by('stories') === 'stories' && by('right-column') === 'rightSidebar' && shown('posts'));
+  ok('the accounts suggested between the posts are not taken for the right column', shown('feed-suggestions'));
+  w.BFX_ENGINE.apply(only([]));
+  await frame();
+  ok('with Suggested accounts off, both boxes are back', shown('feed-suggestions') && shown('right-suggestions'));
   const counts = (w.BFX_ENGINE.apply(S.merge(null)), await frame(), w.BFX_ENGINE.stats().presets);
   ok('the popup counts the two ads and the reel', counts.sponsored.count === 2 && counts.reels.count >= 1, JSON.stringify(counts));
+  ok('…and the two boxes of suggested accounts', counts.suggestedAccounts && counts.suggestedAccounts.count === 2, JSON.stringify(counts.suggestedAccounts));
 
   w.BFX_ENGINE.apply(S.merge({ keywords: { enabled: true, terms: ['crypto'] } }));
   await frame();
