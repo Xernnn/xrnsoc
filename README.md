@@ -355,6 +355,7 @@ src/popup/       the popup, with each site's icons in src/popup/sites/
 src/options/     backup and restore
 fonts/           MiSans Latin, the popup's and options page's font, and its licence note
 scripts/zip.js   packs the extension (npm run zip)
+scripts/icons.sh renders icons/*.png, every size, from the tile's SVG (needs rsvg-convert)
 test/            jsdom, Chrome and Firefox tests, with fixture pages
 docs/            the pictures in this README, and what xrnsoc takes over from other extensions
 .github/         CI
