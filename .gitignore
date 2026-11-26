@@ -1,8 +1,9 @@
 # Dependencies
 node_modules/
 
-# Build output (npm run zip)
+# Build output (npm run zip, npm run release)
 *.zip
+dist/
 
 # Your own saved Facebook pages, and settings a live check is holding
 test/fixtures/snapshots/*.html

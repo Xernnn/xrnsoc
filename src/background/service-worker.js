@@ -94,3 +94,13 @@ chrome.runtime.onInstalled.addListener(function () {
 chrome.runtime.onStartup.addListener(function () {
   store.get().then(paintBadge);
 });
+
+/* Installed from the signed .crx (npm run release; a phone), the manifest
+ * names an update_url and the browser fetches new versions from there by
+ * itself. A new version waits for the worker to go idle; it is taken at once
+ * instead, as the worker holds nothing that a restart would lose. */
+if (chrome.runtime.onUpdateAvailable) {
+  chrome.runtime.onUpdateAvailable.addListener(function () {
+    chrome.runtime.reload();
+  });
+}

@@ -672,10 +672,13 @@ console.log('\nthe background page');
   const calls = [];
   let onMessage = null;
   let onInstalled = null;
+  let onUpdate = null;
+  let reloads = 0;
   let writes = 0;
   const none = { addListener: () => {} };
   const chrome = {
-    runtime: { id: 'xrnsoc', onMessage: { addListener: fn => { onMessage = fn; } }, onInstalled: { addListener: fn => { onInstalled = fn; } }, onStartup: none },
+    runtime: { id: 'xrnsoc', onMessage: { addListener: fn => { onMessage = fn; } }, onInstalled: { addListener: fn => { onInstalled = fn; } }, onStartup: none,
+      onUpdateAvailable: { addListener: fn => { onUpdate = fn; } }, reload: () => { reloads++; } },
     storage: { local: { get: (k, cb) => cb({}), set: (o, cb) => { writes++; if (cb) cb(); } }, onChanged: none },
     commands: { onCommand: none },
     action: { setBadgeText: () => {}, setBadgeBackgroundColor: () => {} },
@@ -690,6 +693,8 @@ console.log('\nthe background page');
   for (const file of ['src/common/sites.js', 'src/common/storage.js', 'src/background/service-worker.js']) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), worker);
   }
+  if (onUpdate) onUpdate({ version: '9.9.9' });
+  ok('a new version from the .crx update channel is taken at once, not when the worker next sleeps', reloads === 1, reloads);
   const ask = (msg, sender) => new Promise(resolve => {
     if (!onMessage) return resolve(null);
     if (onMessage(msg, sender, resolve) !== true) resolve(null);
