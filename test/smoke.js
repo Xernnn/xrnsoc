@@ -522,23 +522,34 @@ console.log('\na /regex/ word that could freeze the tab');
 
   const w = boot(fs.readFileSync(path.join(__dirname, 'fixtures/feed.html'), 'utf8'));
   const $$ = id => w.document.getElementById(id);
-  const timed = async terms => {
-    const t0 = Date.now();
+  /* What each pattern was run over, counted rather than timed: on a busy
+   * machine a timed check failed with nothing wrong. ran[source]: the lengths
+   * of the texts a pattern with that source was tested against. */
+  const ran = {};
+  const reTest = w.RegExp.prototype.test;
+  w.RegExp.prototype.test = function (text) {
+    (ran[this.source] = ran[this.source] || []).push(String(text).length);
+    return reTest.call(this, text);
+  };
+  const apply = async terms => {
     w.BFX_ENGINE.apply(w.BFX_STORE.merge({ keywords: { enabled: true, terms: terms } }));
     await frame();
-    return Date.now() - t0;
   };
   $$('u-organic').append(' ' + 'a'.repeat(28) + '!');
-  const took = await timed(['/(a+)+$/']);
-  ok(`one saved before is read as a plain word: the scan over a post it would hang on takes ${took} ms`,
-    took < 500 && !$$('u-organic').hasAttribute('data-bfx-hidden-by'));
+  await apply(['/(a+)+$/']);
+  ok('one saved before is read as a plain word: it never runs as a pattern, over the post it would hang on or any other',
+    !ran['(a+)+$'] && !$$('u-organic').hasAttribute('data-bfx-hidden-by'), JSON.stringify(ran['(a+)+$']));
   const story = 'the quick brown fox jumps over a lazy dog and then some more words appear in this post. ';
   $$('u-video').append(story.repeat(70) + 'zebra');
-  const long = await timed(['/.*a.*zq/']);
-  ok(`a pattern reads only the start of a long post: ${long} ms over ${$$('u-video').textContent.length} characters`, long < 300);
-  await timed(['zebra']);
+  await apply(['/.*a.*zq/']);
+  const read = ran['.*a.*zq'] || [];
+  const length = $$('u-video').textContent.length;
+  ok('a pattern reads only the start of a long post: at most ' + Math.max(0, ...read) + ' of ' + length + ' characters',
+    read.length > 0 && Math.max(...read) <= 1000 && length > 5000, JSON.stringify(read));
+  w.RegExp.prototype.test = reTest;
+  await apply(['zebra']);
   ok('…while a plain word still reads all of it', $$('u-video').getAttribute('data-bfx-hidden-by') === 'keyword');
-  await timed(['/zebra/']);
+  await apply(['/zebra/']);
   ok('…and the pattern doesn\'t, past its first thousand characters', !$$('u-video').hasAttribute('data-bfx-hidden-by'));
 }
 
