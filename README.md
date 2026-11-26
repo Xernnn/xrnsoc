@@ -158,6 +158,21 @@ are stored under the same key as before. A copy loaded from another folder,
 or a zip that a phone browser lists as a second extension, starts empty;
 the same backup and restore brings the settings across.
 
+### Coming from Ad Blocker for Facebook, Social Fixer or Antigram
+
+xrnsoc hides what those three hid on Facebook and Instagram, with no
+network access; [docs/other-extensions.md](docs/other-extensions.md) goes
+through their features one by one, with the xrnsoc switch for each and
+what was left out. Four of those switches start off, so turn on the ones
+you used:
+
+- Facebook → Feed → **Pause feed** (Social Fixer's Post Loading Pause)
+- Instagram → Feed → **Explore** and **Following feed**, and Menu →
+  **Threads links** (Antigram's)
+
+Then remove the other extension (`about:addons` → ⋯ → **Remove**), so the
+two don't both act on the same pages.
+
 ## Permissions and privacy
 
 | Permission | What it's for |
@@ -340,7 +355,7 @@ src/options/     backup and restore
 fonts/           MiSans Latin, the popup's and options page's font, and its licence note
 scripts/zip.js   packs the extension (npm run zip)
 test/            jsdom, Chrome and Firefox tests, with fixture pages
-docs/screenshots the pictures in this README
+docs/            the pictures in this README, and what xrnsoc takes over from other extensions
 .github/         CI
 ```
 

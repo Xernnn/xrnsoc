@@ -10,7 +10,7 @@ and what was left out and why.
 | --- | --- | --- |
 | Ad Blocker for Facebook | facebook.com | nothing |
 | Social Fixer for Facebook | facebook.com | a daily ping, news, filter lists and Facebook's class map from socialfixer.com and matt-kruse.github.io |
-| Antigram | instagram.com | its options page loads a stylesheet from a CDN; an uninstall survey |
+| Antigram | instagram.com | its options page loads a stylesheet from cdn.jsdelivr.net; removing it opens a survey on tally.so |
 
 xrnsoc keeps to its rules: no requests of its own, no new permissions, short
 labels, and a site's markup is found by roles, labels and link shapes, not
@@ -18,7 +18,7 @@ by generated class names.
 
 ## Ad Blocker for Facebook
 
-It has no settings: it hides feed posts whose label reads "Sponsored" in 27
+It has no settings: it hides feed posts whose label reads "Sponsored" in 26
 languages, the right column's sponsored box, ads in the Watch feed, and on
 old builds Marketplace and photo-page ads.
 
@@ -40,7 +40,8 @@ suggested accounts, and sending the home feed to *Following*.
 
 - **Reels:** xrnsoc's *Recommended Reels* (on by default) already hides the
   Reels tab and the feed's reels, sends the Reels tab to the feed and keeps
-  a reel opened from a link to that one reel.
+  a reel opened from a link to that one reel. Antigram blanks that reel
+  too; xrnsoc plays the one you opened.
 - **Stories, Threads links:** already xrnsoc switches (*Stories*, *Threads
   links*). **Posts** (the whole home feed) has no xrnsoc switch: hide it with
   the picker.
