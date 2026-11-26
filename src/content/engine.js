@@ -527,8 +527,11 @@
   /* Words sites print as an ad's label, matched against the label's whole
    * visible text: a Page called "Publicidad Creativa MX" or a group called
    * "Реклама и объявления Москва" starts with one and is no ad. The forms a
-   * word takes to agree with what it labels are spelled out. */
-  var AD_WORD = /^(sponsored|sponsrad|gesponsert|gesponsord|patrocinad[oa]|publicidad|publicidade|sponsoris[ée]e?|sponsorizzat[oa]|sponsorowane|sponsorlu|bersponsor|được tài trợ|реклама|广告|廣告|広告|إعلان)$/i;
+   * word takes to agree with what it labels are spelled out. Facebook's
+   * "Sponsored" in Czech, Slovak, Romanian, Canadian French, Filipino,
+   * Hungarian, Greek, Hebrew, Arabic, Hindi, Thai and Chinese follows the
+   * rest. */
+  var AD_WORD = /^(sponsored|sponsrad|gesponsert|gesponsord|patrocinad[oa]|publicidad|publicidade|sponsoris[ée]e?|sponsorizzat[oa]|sponsorowane|sponsorlu|bersponsor|được tài trợ|реклама|广告|廣告|広告|إعلان|sponzorováno|sponzorované|sponsorizat|commandité|may sponsor|hirdetés|χορηγούμενη|ממומן|مُموَّل|प्रायोजित|ได้รับการสนับสนุน|赞助内容|贊助)$/i;
   /* Branded content: "Paid partnership", alone or with its brand. */
   var PARTNER_WORD = /^paid (partnership|promotion)( with .+)?$/i;
 
@@ -540,7 +543,7 @@
    * This prefilter is loose on purpose; visibleText() then makes the call. */
   var FUZZY = /s.{0,3}p.{0,3}o.{0,3}n.{0,3}s.{0,3}o.{0,3}r/i;
   /* Just as loose: raw text that starts like one of the words above. */
-  var AD_START = /^(sponsored|sponsrad|gesponsert|gesponsord|patrocinad|publicidad|sponsoris|sponsorizzat|sponsorowane|sponsorlu|bersponsor|được tài trợ|реклама|广告|廣告|広告|إعلان|paid (partnership|promotion))/i;
+  var AD_START = /^(sponsored|sponsrad|gesponsert|gesponsord|patrocinad|publicidad|sponsoris|sponsorizzat|sponsorowane|sponsorlu|bersponsor|được tài trợ|реклама|广告|廣告|広告|إعلان|sponzorováno|sponzorované|sponsorizat|commandité|may sponsor|hirdetés|χορηγούμενη|ממומן|مُموَّل|प्रायोजित|ได้รับการสนับสนุน|赞助内容|贊助|paid (partnership|promotion))/i;
 
   /* A dot or bullet the label shares its element with is not part of it. */
   var EDGE_DOTS = /^[\s·•]+|[\s·•]+$/g;

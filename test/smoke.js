@@ -1603,6 +1603,27 @@ console.log('\nlinkedin.com as of October 2026 (test/fixtures/linkedin.html)');
   ok('the author is named from the picture\'s label', pick2.author === 'Ana Example', pick2.author);
 }
 
+/* ------------------------------------- Facebook: "Sponsored", more languages -- */
+console.log('\n"Sponsored" in the languages Facebook labels ads with');
+{
+  const words = ['Sponzorováno', 'Sponzorované', 'Sponsorizat', 'Commandité', 'May Sponsor', 'Hirdetés',
+    'Χορηγούμενη', 'ממומן', 'مُموَّل', 'प्रायोजित', 'ได้รับการสนับสนุน', '赞助内容', '贊助'];
+  const post = (id, n, title, line) => '<div><div aria-posinset="' + n + '" id="' + id + '" data-h="300">' +
+    '<h4><a role="link" href="/page' + n + '">' + title + '</a></h4><div><span dir="auto">' + line + '</span></div>' +
+    '<div data-ad-preview="message">Made-up post text</div></div></div>';
+  const posts = words.map((word, i) => post('ad-' + i, 2 * i + 1, 'Shop ' + i, word) +
+    post('page-' + i, 2 * i + 2, word + ' Club', word + ' Club · 2 h'));
+  const w = boot('<!doctype html><html><body><div role="main"><div><div id="feedbox">' + posts.join('') +
+    '<div role="progressbar" id="loading"></div></div></div></div></body></html>');
+  w.BFX_ENGINE.apply(w.BFX_STORE.merge(null));
+  await frame();
+  const by = id => w.document.getElementById(id).getAttribute('data-bfx-hidden-by');
+  const missed = words.filter((word, i) => by('ad-' + i) !== 'sponsored');
+  ok('a post labelled "Sponsored" in each of them goes', !missed.length, 'missed: ' + missed.join(', '));
+  const taken = words.filter((word, i) => by('page-' + i));
+  ok('…and a Page whose name starts with the word keeps its posts', !taken.length, 'hidden: ' + taken.join(', '));
+}
+
 /* ------------------------------------------------ Facebook: Pause feed -- */
 console.log('\nPause feed (test/fixtures/facebook-pause.html)');
 {

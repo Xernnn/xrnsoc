@@ -25,9 +25,11 @@ old builds Marketplace and photo-page ads.
 - **Feed, sidebar, Watch and Marketplace ads** were in xrnsoc already
   (*Feed ads*, *Sidebar ads*, *Marketplace ads*, all on by default), with
   more signals than a label's text.
-- **The label's languages:** xrnsoc now also reads "Sponsored" in the 13
-  languages it lacked, matched whole like the others, so a Page whose name
-  starts with the word keeps its posts.
+- **The label's languages:** xrnsoc now also reads "Sponsored" in the 12
+  languages it lacked (Czech, Slovak, Romanian, Canadian French, Filipino,
+  Hungarian, Greek, Hebrew, Arabic, Hindi, Thai, and Chinese in both
+  scripts), matched whole like the others, so a Page whose name starts
+  with the word keeps its posts.
 - Left out: the hooks for builds Facebook no longer serves (the classic
   site's ids and class names, `m.facebook.com`'s 2019 markup).
 
