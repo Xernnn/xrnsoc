@@ -69,6 +69,17 @@ Social Fixer does much more, mostly through its own menu: filters, a
   rest of the feed and its loading skeleton wait behind a "Paused · 10 more"
   bar; clicking it lets 10 more in. With the skeleton out of view, Facebook
   stops fetching posts. Posts other switches hide don't count.
+- **How many posts at a time** is a setting, as in Social Fixer: the − and +
+  beside Pause feed's switch, or the number between them typed in, from 3
+  to 50, 10 to start. Fewer than 3 would keep the bar in view nearly all
+  the time; past 50 it hardly ever pauses, and the switch is the way to
+  have no pause at all. The number is kept with the other settings, so a
+  backup carries it, and an open Facebook tab takes a new one at once: the
+  bar reads it, and the posts let in since the last click become that
+  many. A lower number never takes away a post already showing; a higher
+  one lets the difference in. A stored number out of range is taken as the
+  nearest end, a fraction as the nearest whole number, and anything else
+  (missing, text, a hand-edited backup's `null`) as 10.
 - **Keyword filters and hiding parts of the page** are xrnsoc's words,
   switches and picker.
 - Left out:
@@ -85,7 +96,11 @@ Social Fixer does much more, mostly through its own menu: filters, a
 
 - `src/sites/instagram.js`: `suggestedAccounts`, `explore` and
   `followingFeed`, with the rest of Instagram's rules.
-- `src/sites/facebook.js`: `feedPause`.
+- `src/sites/facebook.js`: `feedPause`, whose `amount` (`min`, `max`,
+  `value`) is the number of posts. A switch with an `amount` gets the −/+
+  in the popup; its number is stored in the site's `amounts`, by switch id
+  (`sites.facebook.amounts.feedPause`), and read through
+  `BFX_SITES.amountOf()` (`src/common/sites.js`), which keeps it in range.
 - `src/content/engine.js`: the ad label's words (`AD_WORD`, `AD_START`).
 - Tests: `test/smoke.js` and `test/browser.js` against the fixtures in
   `test/fixtures/`, which are made up.
