@@ -108,7 +108,9 @@
     site.presets.forEach(function (rule) {
       if (!s.presets[rule.id]) return;
       if (rule.css) selectors = selectors.concat(rule.css);
-      if (rule.style) out.push(rule.style);
+      /* A rule's own CSS, or a function of the settings that writes it
+       * (Pause feed's bar names its number). */
+      if (rule.style) out.push(typeof rule.style === 'function' ? rule.style(s) : rule.style);
     });
 
     /* One selector per line: an invalid selector kills only its own rule,
@@ -1073,7 +1075,7 @@
 
   /* --------------------------------------------------------------- api -- */
 
-  var PARTS = ['enabled', 'presets', 'custom', 'keywords', 'placeholders'];
+  var PARTS = ['enabled', 'presets', 'amounts', 'custom', 'keywords', 'placeholders'];
 
   /* `next` is the full settings; the page runs on its own site's view, and
    * redoes only what changed in it. A switch flipped for another site

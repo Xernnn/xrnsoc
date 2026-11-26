@@ -1689,6 +1689,111 @@ console.log('\nPause feed (test/fixtures/facebook-pause.html)');
     !sheet().includes('data-bfx-paused') && !sheet().includes('data-bfx-pause-bar') && !off.defaultPrevented);
 }
 
+/* The number of posts at a time is the person's (asked for 2026-11-26), and
+ * it lives with the other settings. */
+console.log('\nPause feed\'s number of posts');
+{
+  const S = BFX_STORE;
+  const every = stored => S.merge({ sites: { facebook: { amounts: { feedPause: stored } } } }).sites.facebook.amounts.feedPause;
+  ok('Pause feed takes a number, 3 to 50, 10 to start',
+    JSON.stringify(BFX_PRESETS.find(r => r.id === 'feedPause').amount) === '{"min":3,"max":50,"value":10}');
+  ok('…kept with Facebook\'s settings, 10 when nothing is stored, and no other site has one',
+    S.merge(null).sites.facebook.amounts.feedPause === 10 && BFX_SITES.list.every(x => x.id === 'facebook' ||
+      JSON.stringify(S.merge(null).sites[x.id].amounts) === '{}'));
+  ok('a number stored is kept', every(25) === 25 && every(3) === 3 && every(50) === 50);
+  const clamps = [[2, 3], [0, 3], [-7, 3], [51, 50], [1e9, 50], [12.6, 13], [3.2, 3]];
+  ok('one out of range is taken as the nearest end, a fraction as the nearest whole number',
+    clamps.every(([given, want]) => every(given) === want), clamps.map(([g]) => g + '→' + every(g)).join(' '));
+  const junk = ['25', '', null, true, {}, [12], NaN, Infinity, undefined];
+  ok('anything else stored reads as 10', junk.every(v => every(v) === 10), junk.map(v => String(v) + '→' + every(v)).join(' '));
+  ok('…as do numbers stored as a list or as text',
+    [S.merge({ sites: { facebook: { amounts: 'lots' } } }), S.merge({ sites: { facebook: { amounts: [30] } } })]
+      .every(s => JSON.stringify(s.sites.facebook.amounts) === '{"feedPause":10}'));
+  ok('a number for a switch that takes none is not kept',
+    JSON.stringify(S.merge({ sites: { facebook: { amounts: { stories: 5 } } } }).sites.facebook.amounts) === '{"feedPause":10}');
+  ok('a page runs on its site\'s numbers', S.view(S.merge({ sites: { facebook: { amounts: { feedPause: 7 } } } }), 'facebook').amounts.feedPause === 7);
+
+  /* The service worker loads no site's rules, and writes the whole state
+   * back when the pause shortcut flips it. */
+  const worker = { self: {} };
+  for (const file of ['src/common/sites.js', 'src/common/storage.js']) {
+    vm.runInNewContext(fs.readFileSync(path.join(root, file), 'utf8'), worker);
+  }
+  const fromWorker = JSON.parse(JSON.stringify(worker.self.BFX_STORE.merge({ sites: { facebook: { amounts: { feedPause: 25, bad: 'x' } } } })));
+  ok('the service worker, which has no site rules, keeps the number it stores back', fromWorker.sites.facebook.amounts.feedPause === 25 &&
+    !('bad' in fromWorker.sites.facebook.amounts) && S.merge(fromWorker).sites.facebook.amounts.feedPause === 25,
+    JSON.stringify(fromWorker.sites.facebook.amounts));
+  const wide = JSON.parse(JSON.stringify(worker.self.BFX_STORE.merge({ sites: { facebook: { amounts: { feedPause: 99 } } } })));
+  ok('…even one out of range, which the page reads as 50', wide.sites.facebook.amounts.feedPause === 99 && S.merge(wide).sites.facebook.amounts.feedPause === 50);
+
+  const chosen = S.merge({ sites: { facebook: { presets: { feedPause: true }, amounts: { feedPause: 25 } } } });
+  const back = S.fromBackup(JSON.parse(JSON.stringify(S.toBackup(chosen))));
+  ok('a backup carries the number', JSON.stringify(back) === JSON.stringify(chosen) && back.sites.facebook.amounts.feedPause === 25);
+  const edited = S.fromBackup({ app: 'xrnsoc', version: 2, settings: { sites: { facebook: { amounts: { feedPause: 80 } }, reddit: { amounts: { feedPause: 5 } } } } });
+  ok('a hand-edited backup\'s number comes back in range, and only where a switch takes one',
+    edited.sites.facebook.amounts.feedPause === 50 && JSON.stringify(edited.sites.reddit.amounts) === '{}');
+  const before = S.fromBackup({ app: 'xrnsoc', version: 2, settings: { sites: { facebook: { presets: { feedPause: true } } } } });
+  ok('a backup from before the number reads as 10', before.sites.facebook.amounts.feedPause === 10);
+
+  /* The page, on the fixture of 24 posts with an ad third. */
+  const html = fs.readFileSync(path.join(__dirname, 'fixtures/facebook-pause.html'), 'utf8');
+  const feedOf = w => {
+    const $$ = id => w.document.getElementById(id);
+    const state = id => $$(id).hasAttribute('data-bfx-pause-bar') ? 'bar' : $$(id).hasAttribute('data-bfx-paused') ? 'waits' : 'shown';
+    return {
+      state,
+      all: (ids, want) => ids.every(id => state(id) === want),
+      states: ids => ids.map(id => id + ':' + state(id)).join(' '),
+      sheet: () => w.document.getElementById('bfx-style').textContent,
+      click: id => $$(id).dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true }))
+    };
+  };
+  const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => 'w-' + (a + i));
+  const set = (w, n) => w.BFX_STORE.merge({ sites: { facebook: { presets: { feedPause: true }, amounts: { feedPause: n } } } });
+
+  const w = boot(html);
+  const f = feedOf(w);
+  w.BFX_ENGINE.apply(set(w, 5));
+  await frame();
+  ok('set to 5, five posts show, the ad not counted, then the bar, and the rest wait',
+    f.all(range(1, 6), 'shown') && f.state('w-7') === 'bar' && f.all(range(8, 24).concat('loading'), 'waits'), f.states(range(5, 9)));
+  ok('…and the bar reads "Paused · 5 more"', f.sheet().includes('content:"Paused · 5 more"') && !f.sheet().includes('10 more'));
+  f.click('w-7');
+  await frame();
+  ok('a click lets five more in', f.all(range(7, 11), 'shown') && f.state('w-12') === 'bar' && f.state('w-13') === 'waits', f.states(range(10, 14)));
+  w.BFX_ENGINE.apply(set(w, 12));
+  await frame();
+  ok('raised to 12 on the open tab, the posts since the last click become twelve, and the bar says 12',
+    f.all(range(12, 18), 'shown') && f.state('w-19') === 'bar' && f.all(range(20, 24).concat('loading'), 'waits') &&
+    f.sheet().includes('content:"Paused · 12 more"'), f.states(range(17, 21)));
+  w.BFX_ENGINE.apply(set(w, 3));
+  await frame();
+  ok('lowered to 3, no post already showing goes', f.all(range(1, 18), 'shown') && f.state('w-19') === 'bar' &&
+    f.sheet().includes('content:"Paused · 3 more"'), f.states(range(17, 21)));
+  f.click('w-19');
+  await frame();
+  ok('…and the next click lets three in', f.all(range(19, 21), 'shown') && f.state('w-22') === 'bar' &&
+    f.all(['w-23', 'w-24', 'loading'], 'waits'), f.states(range(20, 24)));
+
+  /* Settings reach a page through merge(); one handed a number past it is
+   * still kept in range there. */
+  const w2 = boot(html);
+  const g = feedOf(w2);
+  const raw = n => { const s = set(w2, 10); s.sites.facebook.amounts.feedPause = n; return s; };
+  w2.BFX_ENGINE.apply(raw(1));
+  await frame();
+  ok('a page handed 1 pauses after 3', g.all(range(1, 4), 'shown') && g.state('w-5') === 'bar' && g.sheet().includes('content:"Paused · 3 more"'),
+    g.states(range(3, 6)));
+  w2.BFX_ENGINE.apply(raw('many'));
+  await frame();
+  ok('…handed text, after 10', g.state('w-12') === 'bar' && g.all(range(1, 11), 'shown') && g.sheet().includes('content:"Paused · 10 more"'),
+    g.states(range(10, 13)));
+  w2.BFX_ENGINE.apply(raw(1000));
+  await frame();
+  ok('…and handed 1000, after 50: all 24 here show', g.all(range(1, 24).concat('loading'), 'shown') && g.sheet().includes('content:"Paused · 50 more"'),
+    g.states(range(22, 24).concat('loading')));
+}
+
 /* ---------------------------------------------- instagram.com, October 2026 -- */
 console.log('\ninstagram.com as of October 2026 (test/fixtures/instagram.html)');
 {

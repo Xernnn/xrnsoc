@@ -88,6 +88,36 @@
     return out;
   }
 
+  /* A switch's number, for a switch that takes one (Pause feed's posts at a
+   * time): its pack gives it `amount: { min, max, value }`. A stored number
+   * is kept whole and within min..max; anything else, or nothing, reads as
+   * `value`, the number it starts with. */
+  function amountOf(spec, stored) {
+    if (!spec) return null;
+    if (typeof stored !== 'number' || !isFinite(stored)) return spec.value;
+    return Math.min(spec.max, Math.max(spec.min, Math.round(stored)));
+  }
+
+  /* A site's numbers over what is stored, by switch id. Where the site's
+   * pack is not loaded (the service worker) the stored numbers are kept as
+   * they are, so a write from there drops none; whatever reads them has the
+   * pack and keeps them in range. */
+  function amountsFor(id, stored) {
+    var out = {};
+    var pack = packs[id];
+    var given = stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+    if (!pack) {
+      Object.keys(given).forEach(function (k) {
+        if (typeof given[k] === 'number' && isFinite(given[k])) out[k] = given[k];
+      });
+      return out;
+    }
+    pack.presets.forEach(function (r) {
+      if (r.amount) out[r.id] = amountOf(r.amount, given[r.id]);
+    });
+    return out;
+  }
+
   /* Switches every site offers in the same shape. */
   var common = {
     /* On the root element a filter greys the whole canvas without making it a
@@ -135,6 +165,8 @@
     get: get,
     available: available,
     defaultsFor: defaultsFor,
+    amountOf: amountOf,
+    amountsFor: amountsFor,
     common: common
   };
 })(typeof self !== 'undefined' ? self : this);

@@ -330,6 +330,15 @@ async function until(fn, timeout = 3000) {
       await isHidden('p-22') && await isHidden('loading'));
     await setState('s => { s.sites.facebook.presets.feedPause = false; }');
     ok('switching it off shows everything again', await until(async () => !(await isHidden('w-24')) && !(await isHidden('p-22'))));
+    await setState('s => { s.sites.facebook.presets.feedPause = true; s.sites.facebook.amounts.feedPause = 5; }');
+    await load();
+    const barOf = id => page.evaluate(i => getComputedStyle(document.getElementById(i), '::before').content, id);
+    ok('set to 5, five posts show, then a bar that says 5', await until(() => isHidden('w-8')) && !(await isHidden('w-6')) &&
+      await isHidden('p-7') && /Paused · 5 more/.test(await barOf('w-7')), await barOf('w-7'));
+    await setState('s => { s.sites.facebook.amounts.feedPause = 12; }');
+    ok('changed to 12 with the tab open, twelve show with no reload, and the bar says 12',
+      await until(async () => !(await isHidden('w-13')) && await isHidden('p-14')) && await isHidden('w-15') &&
+      /Paused · 12 more/.test(await barOf('w-14')), await barOf('w-14'));
     served = fs.readFileSync(path.join(fixtures, 'feed.html'), 'utf8');
     await resetState();
     await load();
