@@ -522,23 +522,34 @@ console.log('\na /regex/ word that could freeze the tab');
 
   const w = boot(fs.readFileSync(path.join(__dirname, 'fixtures/feed.html'), 'utf8'));
   const $$ = id => w.document.getElementById(id);
-  const timed = async terms => {
-    const t0 = Date.now();
+  /* What each pattern was run over, counted rather than timed: on a busy
+   * machine a timed check failed with nothing wrong. ran[source]: the lengths
+   * of the texts a pattern with that source was tested against. */
+  const ran = {};
+  const reTest = w.RegExp.prototype.test;
+  w.RegExp.prototype.test = function (text) {
+    (ran[this.source] = ran[this.source] || []).push(String(text).length);
+    return reTest.call(this, text);
+  };
+  const apply = async terms => {
     w.BFX_ENGINE.apply(w.BFX_STORE.merge({ keywords: { enabled: true, terms: terms } }));
     await frame();
-    return Date.now() - t0;
   };
   $$('u-organic').append(' ' + 'a'.repeat(28) + '!');
-  const took = await timed(['/(a+)+$/']);
-  ok(`one saved before is read as a plain word: the scan over a post it would hang on takes ${took} ms`,
-    took < 500 && !$$('u-organic').hasAttribute('data-bfx-hidden-by'));
+  await apply(['/(a+)+$/']);
+  ok('one saved before is read as a plain word: it never runs as a pattern, over the post it would hang on or any other',
+    !ran['(a+)+$'] && !$$('u-organic').hasAttribute('data-bfx-hidden-by'), JSON.stringify(ran['(a+)+$']));
   const story = 'the quick brown fox jumps over a lazy dog and then some more words appear in this post. ';
   $$('u-video').append(story.repeat(70) + 'zebra');
-  const long = await timed(['/.*a.*zq/']);
-  ok(`a pattern reads only the start of a long post: ${long} ms over ${$$('u-video').textContent.length} characters`, long < 300);
-  await timed(['zebra']);
+  await apply(['/.*a.*zq/']);
+  const read = ran['.*a.*zq'] || [];
+  const length = $$('u-video').textContent.length;
+  ok('a pattern reads only the start of a long post: at most ' + Math.max(0, ...read) + ' of ' + length + ' characters',
+    read.length > 0 && Math.max(...read) <= 1000 && length > 5000, JSON.stringify(read));
+  w.RegExp.prototype.test = reTest;
+  await apply(['zebra']);
   ok('…while a plain word still reads all of it', $$('u-video').getAttribute('data-bfx-hidden-by') === 'keyword');
-  await timed(['/zebra/']);
+  await apply(['/zebra/']);
   ok('…and the pattern doesn\'t, past its first thousand characters', !$$('u-video').hasAttribute('data-bfx-hidden-by'));
 }
 
@@ -661,10 +672,13 @@ console.log('\nthe background page');
   const calls = [];
   let onMessage = null;
   let onInstalled = null;
+  let onUpdate = null;
+  let reloads = 0;
   let writes = 0;
   const none = { addListener: () => {} };
   const chrome = {
-    runtime: { id: 'xrnsoc', onMessage: { addListener: fn => { onMessage = fn; } }, onInstalled: { addListener: fn => { onInstalled = fn; } }, onStartup: none },
+    runtime: { id: 'xrnsoc', onMessage: { addListener: fn => { onMessage = fn; } }, onInstalled: { addListener: fn => { onInstalled = fn; } }, onStartup: none,
+      onUpdateAvailable: { addListener: fn => { onUpdate = fn; } }, reload: () => { reloads++; } },
     storage: { local: { get: (k, cb) => cb({}), set: (o, cb) => { writes++; if (cb) cb(); } }, onChanged: none },
     commands: { onCommand: none },
     action: { setBadgeText: () => {}, setBadgeBackgroundColor: () => {} },
@@ -679,6 +693,8 @@ console.log('\nthe background page');
   for (const file of ['src/common/sites.js', 'src/common/storage.js', 'src/background/service-worker.js']) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), worker);
   }
+  if (onUpdate) onUpdate({ version: '9.9.9' });
+  ok('a new version from the .crx update channel is taken at once, not when the worker next sleeps', reloads === 1, reloads);
   const ask = (msg, sender) => new Promise(resolve => {
     if (!onMessage) return resolve(null);
     if (onMessage(msg, sender, resolve) !== true) resolve(null);
@@ -2109,6 +2125,54 @@ console.log('\ncolours');
       const behind = token(css, surface) || token(base, surface);
       ok('pink text reaches 4.5:1 on the ' + scheme + ' --' + surface, contrast(text, behind) >= 4.5, text + ' on ' + behind + ' ' + contrast(text, behind).toFixed(2));
     }
+  }
+}
+
+console.log('\nicons');
+{
+  // Every size a browser may draw, in both the manifest's "icons" and the toolbar button's
+  // "action.default_icon", each file that size, and the tile reaching the edges of its canvas.
+  // Chromium picks the next size up for its slot and scales it down; on Android the toolbar slot
+  // is 20 dp, 55 px on a 2.75x phone. scripts/icons.sh renders the files.
+  const zlib = require('zlib');
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
+  const SIZES = ['16', '24', '32', '48', '64', '96', '128', '256'];
+  // A PNG's width, height and the alpha at (x, y): 8-bit RGBA, not interlaced (rsvg-convert's).
+  const png = buf => {
+    const width = buf.readUInt32BE(16), height = buf.readUInt32BE(20);
+    if (buf.toString('latin1', 1, 4) !== 'PNG' || buf[24] !== 8 || buf[25] !== 6 || buf[28] !== 0) return null;
+    const idat = [];
+    for (let at = 8; at < buf.length;) {
+      const len = buf.readUInt32BE(at);
+      if (buf.toString('latin1', at + 4, at + 8) === 'IDAT') idat.push(buf.subarray(at + 8, at + 8 + len));
+      at += 12 + len;
+    }
+    const raw = zlib.inflateSync(Buffer.concat(idat));
+    const stride = width * 4;
+    const px = Buffer.alloc(stride * height);
+    for (let y = 0; y < height; y++) {
+      const filter = raw[y * (stride + 1)];
+      for (let i = 0; i < stride; i++) {
+        const v = raw[y * (stride + 1) + 1 + i];
+        const a = i >= 4 ? px[y * stride + i - 4] : 0;
+        const b = y ? px[(y - 1) * stride + i] : 0;
+        const c = i >= 4 && y ? px[(y - 1) * stride + i - 4] : 0;
+        const p = a + b - c;
+        const paeth = Math.abs(p - a) <= Math.abs(p - b) && Math.abs(p - a) <= Math.abs(p - c) ? a : Math.abs(p - b) <= Math.abs(p - c) ? b : c;
+        px[y * stride + i] = (v + [0, a, b, (a + b) >> 1, paeth][filter]) & 255;
+      }
+    }
+    return { width, height, alpha: (x, y) => px[y * stride + x * 4 + 3] };
+  };
+  ok('"icons" names every size from 16 to 256', JSON.stringify(Object.keys(manifest.icons)) === JSON.stringify(SIZES), Object.keys(manifest.icons).join());
+  ok('the toolbar button has the same set', JSON.stringify(manifest.action.default_icon) === JSON.stringify(manifest.icons), Object.keys(manifest.action.default_icon).join());
+  for (const [size, file] of Object.entries(manifest.icons)) {
+    const img = png(fs.readFileSync(path.join(root, file)));
+    ok(file + ' is an 8-bit RGBA PNG of ' + size + ' px', img && img.width === +size && img.height === +size, img ? img.width + 'x' + img.height : 'not RGBA');
+    if (!img) continue;
+    const mid = img.width >> 1;
+    const edges = [[mid, 0], [mid, img.height - 1], [0, mid], [img.width - 1, mid]].every(([x, y]) => img.alpha(x, y) > 200);
+    ok(file + ': the tile reaches the edges, with rounded corners', edges && img.alpha(0, 0) < 128);
   }
 }
 

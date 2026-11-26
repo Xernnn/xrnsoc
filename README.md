@@ -134,8 +134,20 @@ temporary add-on when it closes.
 ### On a phone
 
 A Chromium browser that takes extensions, such as Quetta on Android, installs
-`xrnsoc.zip` from its extensions page. The picker works by touch there
-(see Features). There is no self-update: install a newer zip by hand.
+a signed `xrnsoc.crx` that then updates itself: `npm run release` signs it
+and puts it, with its update manifest `xrnsoc.xml`, in the update folder of a
+server you already run for another extension (xrnsoc has no server of its
+own; any server that serves `<address>/update/<file>` for `.crx` and `.xml`
+files, such as xrntube's or xrnmark's sync server). Once, on the computer:
+create `~/.config/xrnsoc/release.json` with
+`{ "server": "https://<that server's address>", "ssh": "<ssh host>", "dir": "<its data folder>" }`
+and run `npm run release -- --new-key`, which also makes the signing key
+`~/.config/xrnsoc/xrnsoc.pem` (**back it up**: it is the extension's ID, and
+every update must be signed with it). Later releases: `npm run release`.
+Then open `<that server's address>/update/xrnsoc.crx` in Quetta and add it.
+The picker works by touch there (see Features). A copy installed from
+`xrnsoc.zip` by hand doesn't update and is another extension: move its
+settings over with More → Back up or restore.
 
 ### Coming from xrnsocial
 
@@ -227,7 +239,7 @@ The tests need Node.js 22.12 or newer.
 
 ```sh
 npm install
-npm test               # fast checks against mock pages (jsdom)
+npm test               # fast checks against mock pages (jsdom), and the signed .crx read back
 npm run test:browser   # the extension in a real, headless Chrome for Testing
 npm run test:firefox   # the extension in a real Firefox
 ```
@@ -355,6 +367,8 @@ src/popup/       the popup, with each site's icons in src/popup/sites/
 src/options/     backup and restore
 fonts/           MiSans Latin, the popup's and options page's font, and its licence note
 scripts/zip.js   packs the extension (npm run zip)
+scripts/release.mjs, crx.mjs, release-guard.mjs   the signed .crx for a phone (npm run release)
+scripts/icons.sh renders icons/*.png, every size, from the tile's SVG (needs rsvg-convert)
 test/            jsdom, Chrome and Firefox tests, with fixture pages
 docs/            the pictures in this README, and what xrnsoc takes over from other extensions
 .github/         CI
