@@ -79,11 +79,11 @@ Nothing leaves your browser: no network requests, no analytics, no accounts.
 
 | Site | Switches | On by default | Status |
 | --- | --- | --- | --- |
-| Facebook | 34 | 7 | Checked on the live site, October 2026 |
+| Facebook | 35 | 7 | Checked on the live site, October 2026 |
 | Reddit | 23 | 6 | Checked on the live site, October 2026 |
 | X | 24 | 5 | Checked on the live site, October 2026 |
 | LinkedIn | 19 | 3 | Checked on the live site, October 2026 |
-| Instagram | 13 | 3 | Checked on the live site, October 2026 |
+| Instagram | 16 | 4 | Checked on the live site, October 2026 |
 | Twitch | 14 | 4 | Checked on the live site, October 2026 |
 | TikTok | 7 | 1 | Partial: mapped while signed out, no ad switch yet |
 | pixiv | 4 | 2 | Checked on the live site while signed out, computer and phone layouts, November 2026 |
@@ -94,7 +94,7 @@ has them. On top of that, Facebook hides Reels, suggested posts and "people
 you may know" (with Reels on, a reel link lands on the home feed); Reddit
 hides recommended posts and community suggestions; X hides promoted trends,
 "who to follow" and Premium offers; LinkedIn hides Premium offers;
-Instagram hides recommended Reels; Twitch hides Prime and Bits offers and
+Instagram hides recommended Reels and suggested accounts; Twitch hides Prime and Bits offers and
 recommended channels; pixiv hides Premium offers; and MangaDex hides its
 "Advertise" link. TikTok starts with only *Coins and CapCut* on, since it
 has no ad switch yet. Every other switch starts off.
@@ -157,6 +157,22 @@ update its folder in place: the id comes from the folder, and the settings
 are stored under the same key as before. A copy loaded from another folder,
 or a zip that a phone browser lists as a second extension, starts empty;
 the same backup and restore brings the settings across.
+
+### Coming from Ad Blocker for Facebook, Social Fixer or Antigram
+
+xrnsoc hides what those three hid on Facebook and Instagram, with no
+network access; [docs/other-extensions.md](docs/other-extensions.md) goes
+through their features one by one, with the xrnsoc switch for each and
+what was left out. Four of those switches start off, so turn on the ones
+you used:
+
+- Facebook → Feed → **Pause feed** (Social Fixer's Post Loading Pause),
+  with the number of posts at a time, 3 to 50, beside its switch
+- Instagram → Feed → **Explore** and **Following feed**, and Menu →
+  **Threads links** (Antigram's)
+
+Then remove the other extension (`about:addons` → ⋯ → **Remove**), so the
+two don't both act on the same pages.
 
 ## Permissions and privacy
 
@@ -314,6 +330,10 @@ all of them.
   have no switches yet.
 - **Instagram:** only the home feed is mapped, so ads in Stories, Explore and
   the Reels tab aren't covered.
+- **Built against made-up pages, not yet checked on the live sites:**
+  Instagram's *Suggested accounts*, *Following feed* and *Explore*, and
+  Facebook's *Pause feed*. `test/live/check.js` has probes for the first
+  and the third.
 - **Reddit:** the picker can't reach inside Reddit's own components (votes,
   counts, share). Use the switches for those.
 - **Facebook Story ads** are untested: the story viewer couldn't be stepped
@@ -336,7 +356,7 @@ src/options/     backup and restore
 fonts/           MiSans Latin, the popup's and options page's font, and its licence note
 scripts/zip.js   packs the extension (npm run zip)
 test/            jsdom, Chrome and Firefox tests, with fixture pages
-docs/screenshots the pictures in this README
+docs/            the pictures in this README, and what xrnsoc takes over from other extensions
 .github/         CI
 ```
 

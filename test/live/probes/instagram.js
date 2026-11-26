@@ -34,6 +34,8 @@ module.exports = {
     postActions: { find: `() => [...document.querySelectorAll('article svg[aria-label="Like"], article svg[aria-label="Unlike"]')].map(s => s.closest('section'))` },
     counts: { find: `() => [...document.querySelectorAll('article section span[role="button"]')].filter(s => /\\d/.test(s.textContent))` },
     rightSidebar: { find: `() => [...document.querySelectorAll('a[href^="/explore/people/"]')]` },
+    suggestedAccounts: { find: `() => [...document.querySelectorAll('a[href^="/explore/people/"]')]`, scroll: 6 },
+    explore: { page: 'https://www.instagram.com/explore/', find: `() => [...document.querySelectorAll('main a[href^="/p/"], main a[href^="/reel/"]')]` },
     badges: { find: `() => [...document.querySelectorAll('a[href="/direct/inbox/"] span, a[href="/direct/inbox/"] div')].filter(e => !e.children.length && /^\\d+$/.test(e.textContent.trim()))` },
     threadsLink: { find: `() => [...document.querySelectorAll('a[href^="https://www.threads."]')]` },
     grayscale: { effect: `getComputedStyle(document.documentElement).filter` },

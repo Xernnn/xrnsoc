@@ -59,13 +59,15 @@ var GROUP_ICONS = {
 };
 var CHEVRON = 'M6 9l6 6 6-6';
 var CLOSE = 'M6 6l12 12M18 6L6 18';
+var MINUS = 'M5 12h14';
+var PLUS = 'M12 5v14M5 12h14';
 
 function pack() {
   return SITES.get(siteId);
 }
 
 function own() {
-  return state.sites[siteId] || { enabled: true, presets: {}, custom: [], remembered: {} };
+  return state.sites[siteId] || { enabled: true, presets: {}, amounts: {}, custom: [], remembered: {} };
 }
 
 /* Every write is a read-modify-write against storage, never a save of this
@@ -296,18 +298,79 @@ function flipGroup(group, on) {
   });
 }
 
+/* A switch's number (Pause feed's posts at a time): − and + around the
+ * number, which also takes one typed. Each step is a read-modify-write of
+ * the stored number, so presses in a row all count; one typed is kept in
+ * range as it is saved. Clicks here are the number's, not the row's
+ * switch's. */
+function buildAmount(rule) {
+  var spec = rule.amount;
+  var wrap = node('span', 'amount');
+  var less = button('amount-step');
+  var more = button('amount-step');
+  var field = node('input', 'amount-num');
+  less.setAttribute('aria-label', 'Fewer');
+  more.setAttribute('aria-label', 'More');
+  less.appendChild(icon(MINUS, 16));
+  more.appendChild(icon(PLUS, 16));
+  field.type = 'number';
+  field.inputMode = 'numeric';
+  field.min = String(spec.min);
+  field.max = String(spec.max);
+  field.step = '1';
+  field.setAttribute('aria-label', rule.label);
+
+  function save(fn) {
+    mutateSite(function (m) {
+      m.amounts = m.amounts || {};
+      m.amounts[rule.id] = SITES.amountOf(spec, fn(SITES.amountOf(spec, m.amounts[rule.id])));
+    });
+  }
+  function commit() {
+    var typed = field.value.trim() === '' ? NaN : Number(field.value);
+    if (!isFinite(typed)) {
+      field.value = String(SITES.amountOf(spec, (own().amounts || {})[rule.id]));
+      return;
+    }
+    field.value = String(SITES.amountOf(spec, typed));
+    save(function () { return typed; });
+  }
+
+  less.addEventListener('click', function () { save(function (n) { return n - 1; }); });
+  more.addEventListener('click', function () { save(function (n) { return n + 1; }); });
+  field.addEventListener('change', commit);
+  field.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+  });
+  wrap.addEventListener('click', function (e) { e.stopPropagation(); });
+  wrap.appendChild(less);
+  wrap.appendChild(field);
+  wrap.appendChild(more);
+  return { spec: spec, wrap: wrap, less: less, more: more, field: field };
+}
+
 function buildRule(rule, list) {
   var row = node('div', 'rule');
   var chip = node('span');
   var sw = makeSwitch(false, function (on) {
     mutateSite(function (m) { m.presets[rule.id] = on; });
   }, rule.label);
+  var amount = rule.amount ? buildAmount(rule) : null;
   row.appendChild(node('span', 'rule-text', rule.label));
+  if (amount) row.appendChild(amount.wrap);
   row.appendChild(chip);
   row.appendChild(sw);
   clickTogglesSwitch(row, sw.input);
   list.appendChild(row);
-  return { id: rule.id, chip: chip, input: sw.input };
+  return { id: rule.id, chip: chip, input: sw.input, amount: amount };
+}
+
+/* What is being typed stays until it is saved. */
+function renderAmount(amount, stored) {
+  var n = SITES.amountOf(amount.spec, stored);
+  if (document.activeElement !== amount.field) amount.field.value = String(n);
+  amount.less.disabled = n <= amount.spec.min;
+  amount.more.disabled = n >= amount.spec.max;
 }
 
 function buildGroups() {
@@ -379,6 +442,7 @@ function renderGroups() {
       row.input.checked = isOn;
       row.chip.textContent = '';
       if (chip) row.chip.appendChild(chip);
+      if (row.amount) renderAmount(row.amount, (mine.amounts || {})[row.id]);
     });
   });
 }

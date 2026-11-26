@@ -1,0 +1,37 @@
+<!doctype html>
+<!-- instagram.com/explore/ cut down to what the Explore switch keys on: a
+     grid of posts picked for you, each tile a link to /p/<id>/ or
+     /reel/<id>/, with a search box above it as on a phone. Served for every
+     /explore/ address (tag pages included). Built for the tests, not copied
+     from the live site; every name is made up. -->
+<html lang="en">
+<head><meta charset="utf-8"><title>Instagram</title></head>
+<body style="margin:0;font:14px sans-serif">
+<div style="display:flex">
+  <div id="menu" style="display:block;width:240px">
+    <a href="/" role="link"><svg aria-label="Home"></svg>Home</a>
+    <a href="#" role="link" id="menu-search"><svg aria-label="Search"></svg>Search</a>
+    <a href="/explore/" role="link" id="menu-explore"><svg aria-label="Explore"></svg>Explore</a>
+    <a href="/direct/inbox/" role="link" id="menu-messages"><svg aria-label="Messages"></svg>Messages</a>
+  </div>
+
+  <main role="main" style="display:block;width:900px">
+    <div id="explore-page">
+    <div id="search-box" style="height:44px" data-h="44"><input type="text" aria-label="Search input" placeholder="Search"></div>
+    <div id="explore-grid" style="display:block" data-h="600"><div>
+      <div style="display:flex">
+        <a href="/p/GA1/" role="link" id="tile-1"><img alt="" style="width:290px;height:290px"></a>
+        <a href="/p/GA2/" role="link"><img alt="" style="width:290px;height:290px"></a>
+        <a href="/reel/GA3/" role="link"><img alt="" style="width:290px;height:290px"></a>
+      </div>
+      <div style="display:flex">
+        <a href="/p/GA4/" role="link"><img alt="" style="width:290px;height:290px"></a>
+        <a href="/reel/GA5/" role="link"><img alt="" style="width:290px;height:290px"></a>
+        <a href="/p/GA6/" role="link"><img alt="" style="width:290px;height:290px"></a>
+      </div>
+    </div></div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

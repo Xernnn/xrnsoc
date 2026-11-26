@@ -12,7 +12,7 @@
     <a href="/" role="link"><svg aria-label="Home"></svg>Home</a>
     <a href="/reels/" role="link" id="menu-reels"><svg aria-label="Reels"></svg>Reels</a>
     <a href="/direct/inbox/" role="link" id="menu-messages"><svg aria-label="Messages"></svg><div id="badge"><span>3</span></div>Messages</a>
-    <a href="/explore/" role="link"><svg aria-label="Search"></svg>Search</a>
+    <a href="/explore/" role="link" id="menu-explore-search"><svg aria-label="Search"></svg>Search</a>
     <a href="https://www.threads.com/" id="menu-threads">Threads</a>
   </div>
 
@@ -76,6 +76,15 @@
             <div><img alt=""></div>
           </div></article>
 
+          <!-- Accounts to follow, between posts: a "See all" link and a Follow button per account. -->
+          <div data-h="300"><div id="feed-suggestions" data-h="300">
+            <div><span>Suggested for you</span><a href="/explore/people/" role="link" id="see-all-feed">See all</a></div>
+            <div>
+              <div><a href="/hana_example/" role="link">hana_example</a><div role="button">Follow</div></div>
+              <div><a href="/ivan_example/" role="link">ivan_example</a><div role="button">Follow</div></div>
+            </div>
+          </div></div>
+
           <!-- A reel, a plain video, a post still loading, and one a word block will catch. -->
           <article id="a-reel" data-h="500"><div>
             <div>
@@ -110,10 +119,10 @@
       </div>
 
       <div id="right-column" style="display:block;width:320px">
-        <div><a href="/me_example/">me_example</a></div>
-        <div><span>Suggested for you</span><a href="/explore/people/">See all</a>
+        <div id="me-row"><a href="/me_example/">me_example</a><div role="button">Switch</div></div>
+        <div id="right-suggestions"><span>Suggested for you</span><a href="/explore/people/">See all</a>
           <div><a href="/gina_example/">gina_example</a><div role="button">Follow</div></div></div>
-        <footer><a href="https://about.instagram.com/">About</a></footer>
+        <footer id="right-footer"><a href="https://about.instagram.com/">About</a></footer>
       </div>
     </div>
   </main>

@@ -4,14 +4,17 @@
  * subtle.
  *
  *   { enabled, placeholders, keywords: { enabled, terms },
- *     sites: { <site id>: { enabled, presets: { <preset id>: bool }, custom: [rule],
+ *     sites: { <site id>: { enabled, presets: { <preset id>: bool },
+ *                           amounts: { <preset id>: number }, custom: [rule],
  *                           remembered: { <group>: [preset id] } } } }
  *
  * The pause switch, the "show" bars and the word list are shared by every
- * site; switches and picked rules belong to one site. `remembered` holds what
- * was on in a group when the popup's group switch turned it off, so turning
- * it back on restores that. Settings saved before there was more than one
- * site were Facebook's and are moved there.
+ * site; switches and picked rules belong to one site. `amounts` holds the
+ * number of each switch that takes one (Pause feed's posts at a time; see
+ * amountOf in sites.js). `remembered` holds what was on in a group when the
+ * popup's group switch turned it off, so turning it back on restores that.
+ * Settings saved before there was more than one site were Facebook's and
+ * are moved there.
  */
 (function (root) {
   'use strict';
@@ -49,13 +52,14 @@
 
   /* One site's settings over its defaults. Defaults come from the site's
    * rule pack, so where a pack is not loaded (the service worker) stored
-   * switches are kept as they are and nothing is added. */
+   * switches and numbers are kept as they are and nothing is added. */
   function mergeSite(id, stored) {
     stored = stored || {};
     var defaults = root.BFX_SITES ? root.BFX_SITES.defaultsFor(id) : {};
     return {
       enabled: stored.enabled !== false,
       presets: Object.assign(defaults, stored.presets || {}),
+      amounts: root.BFX_SITES ? root.BFX_SITES.amountsFor(id, stored.amounts) : {},
       custom: Array.isArray(stored.custom) ? stored.custom : [],
       remembered: cleanRemembered(stored.remembered)
     };
@@ -90,14 +94,15 @@
   }
 
   /* What a page on one site runs on: the shared settings with that site's
-   * switches and picked rules. Paused when everything is paused or the site
-   * is switched off. */
+   * switches, their numbers and picked rules. Paused when everything is
+   * paused or the site is switched off. */
   function view(state, id) {
     var own = state.sites[id] || mergeSite(id);
     return {
       site: id,
       enabled: state.enabled && own.enabled,
       presets: own.presets,
+      amounts: own.amounts,
       custom: own.custom,
       keywords: state.keywords,
       placeholders: state.placeholders
@@ -418,6 +423,7 @@
       out.sites[id] = {
         enabled: sites[id].enabled !== false,
         presets: cleanSwitches(sites[id].presets),
+        amounts: sites[id].amounts,
         custom: cleanRules(sites[id].custom),
         remembered: sites[id].remembered
       };

@@ -101,7 +101,7 @@ const PAGES = [
       ['https://www.reddit.com/', 'Reddit', ['ad', 'hr-ad', 'a-rec', 'sad'], ['a-sub']],
       ['https://x.com/home', 'X', ['cell-ad', 'cell-adlabel', 'trend-promo', 'blk-premium'], ['cell-plain', 'cell-quote']],
       ['https://www.linkedin.com/feed/', 'LinkedIn', ['item-ad', 'item-ad-de', 'left-premium'], ['item-plain', 'item-suggested']],
-      ['https://www.instagram.com/', 'Instagram', ['a-ad', 'a-ad-quiet', 'a-reel'], ['a-plain', 'a-suggested']],
+      ['https://www.instagram.com/', 'Instagram', ['a-ad', 'a-ad-quiet', 'a-reel', 'feed-suggestions', 'right-suggestions'], ['a-plain', 'a-suggested', 'me-row']],
       ['https://www.twitch.tv/', 'Twitch', ['headliner', 'sda', 'grp-recommended'], ['grp-followed', 'featured']],
       ['https://www.tiktok.com/foryou', 'TikTok', ['coins', 'capcut'], ['v-1']],
       ['https://www.pixiv.net/en/artworks/1001', 'pixiv', ['top-frame', 'p-sticky', 'p-native', 'remove-ads'], ['work-1', 'user-page', 'p-related']],

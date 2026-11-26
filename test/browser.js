@@ -98,6 +98,7 @@ async function until(fn, timeout = 3000) {
     const linkedinDoc = fs.readFileSync(path.join(fixtures, 'linkedin.html'), 'utf8');
     const instagramDoc = fs.readFileSync(path.join(fixtures, 'instagram.html'), 'utf8');
     const instagramReelsDoc = fs.readFileSync(path.join(fixtures, 'instagram-reels.html'), 'utf8');
+    const instagramExploreDoc = fs.readFileSync(path.join(fixtures, 'instagram-explore.html'), 'utf8');
     const twitchDoc = fs.readFileSync(path.join(fixtures, 'twitch.html'), 'utf8');
     const tiktokDoc = fs.readFileSync(path.join(fixtures, 'tiktok.html'), 'utf8');
     const pixivDoc = fs.readFileSync(path.join(fixtures, 'pixiv.html'), 'utf8');
@@ -115,7 +116,7 @@ async function until(fn, timeout = 3000) {
       } else if (/(^|\.)linkedin\.com$/.test(url.hostname) && req.resourceType() === 'document') {
         req.respond({ status: 200, contentType: 'text/html; charset=utf-8', body: linkedinDoc });
       } else if (/(^|\.)instagram\.com$/.test(url.hostname) && req.resourceType() === 'document') {
-        req.respond({ status: 200, contentType: 'text/html; charset=utf-8', body: /^\/reels?\/\w/.test(url.pathname) ? instagramReelsDoc : instagramDoc });
+        req.respond({ status: 200, contentType: 'text/html; charset=utf-8', body: /^\/reels?\/\w/.test(url.pathname) ? instagramReelsDoc : /^\/explore(\/|$)/.test(url.pathname) ? instagramExploreDoc : instagramDoc });
       } else if (/(^|\.)twitch\.tv$/.test(url.hostname) && req.resourceType() === 'document') {
         req.respond({ status: 200, contentType: 'text/html; charset=utf-8', body: twitchDoc });
       } else if (/(^|\.)tiktok\.com$/.test(url.hostname) && req.resourceType() === 'document') {
@@ -311,6 +312,37 @@ async function until(fn, timeout = 3000) {
     await sleep(500);
     ok('with the Reels rule off, the reel stays open', new URL(page.url()).pathname === '/reel/123456/', page.url());
 
+    /* ---------------------------------------------------------- pause feed -- */
+    console.log('\npause feed');
+    await resetState();
+    served = fs.readFileSync(path.join(fixtures, 'facebook-pause.html'), 'utf8');
+    await load();
+    await sleep(400);
+    ok('off by default, the whole feed shows', !(await isHidden('w-13')) && !(await isHidden('loading')));
+    await setState('s => { s.sites.facebook.presets.feedPause = true; }');
+    const barText = () => page.evaluate(() => getComputedStyle(document.getElementById('w-12'), '::before').content);
+    ok('with Pause feed on, ten posts show, then the bar; the rest and the skeleton wait',
+      await until(() => isHidden('w-13')) && await isHidden('w-24') && await isHidden('loading') &&
+      !(await isHidden('w-11')) && !(await isHidden('w-12')) && await isHidden('p-12') && /Paused · 10 more/.test(await barText()),
+      await barText());
+    await page.click('#w-12');
+    ok('clicking the bar lets ten more in', await until(async () => !(await isHidden('p-12')) && !(await isHidden('w-21'))) &&
+      await isHidden('p-22') && await isHidden('loading'));
+    await setState('s => { s.sites.facebook.presets.feedPause = false; }');
+    ok('switching it off shows everything again', await until(async () => !(await isHidden('w-24')) && !(await isHidden('p-22'))));
+    await setState('s => { s.sites.facebook.presets.feedPause = true; s.sites.facebook.amounts.feedPause = 5; }');
+    await load();
+    const barOf = id => page.evaluate(i => getComputedStyle(document.getElementById(i), '::before').content, id);
+    ok('set to 5, five posts show, then a bar that says 5', await until(() => isHidden('w-8')) && !(await isHidden('w-6')) &&
+      await isHidden('p-7') && /Paused · 5 more/.test(await barOf('w-7')), await barOf('w-7'));
+    await setState('s => { s.sites.facebook.amounts.feedPause = 12; }');
+    ok('changed to 12 with the tab open, twelve show with no reload, and the bar says 12',
+      await until(async () => !(await isHidden('w-13')) && await isHidden('p-14')) && await isHidden('w-15') &&
+      /Paused · 12 more/.test(await barOf('w-14')), await barOf('w-14'));
+    served = fs.readFileSync(path.join(fixtures, 'feed.html'), 'utf8');
+    await resetState();
+    await load();
+
     /* --------------------------------------------------------------- popup -- */
     console.log('\npopup');
     await resetState();
@@ -409,6 +441,31 @@ async function until(fn, timeout = 3000) {
     await popup.click('#groups .rule .rule-text');
     await until(async () => (await fbNow()).presets.grayscale === false);
 
+    /* Pause feed's number, beside its switch, reaching the open tab. */
+    served = fs.readFileSync(path.join(fixtures, 'facebook-pause.html'), 'utf8');
+    await setState('s => { s.sites.facebook.presets.feedPause = true; }');
+    await load();
+    await popup.click('.group[data-group="Feed"] .group-main');
+    const amount = '#groups .rule .amount';
+    ok('Pause feed\'s row has its number beside the switch, 10 to start', await until(async () =>
+      (await popup.$$eval(amount, a => a.length)) === 1 && (await popup.$eval(amount + ' input', i => i.value)) === '10'));
+    await popup.click(amount + ' [aria-label="More"]');
+    ok('+ saves one more', await until(async () => (await fbNow()).amounts.feedPause === 11) &&
+      (await popup.$eval(amount + ' input', i => i.value)) === '11');
+    await popup.$eval(amount + ' input', i => { i.focus(); i.value = ''; });
+    await popup.type(amount + ' input', '5');
+    await popup.keyboard.press('Enter');
+    ok('a number typed and Enter saves it', await until(async () => (await fbNow()).amounts.feedPause === 5));
+    ok('…leaving the switch on', (await fbNow()).presets.feedPause === true &&
+      await popup.$eval('#groups .rule:has(.amount) .switch input', i => i.checked));
+    await page.bringToFront();
+    ok('the open Facebook tab takes it with no reload: five posts, then a bar that says 5', await until(async () =>
+      await isHidden('w-8') && !(await isHidden('w-6')) && /Paused · 5 more/.test(await barOf('w-7'))), await barOf('w-7'));
+    await popup.bringToFront();
+    served = fs.readFileSync(path.join(fixtures, 'feed.html'), 'utf8');
+    await setState('s => { s.sites.facebook.presets.feedPause = false; s.sites.facebook.amounts.feedPause = 10; }');
+    await load();
+
     await popup.click('.tab[data-view="words"]');
     await popup.type('#wordInput', 'crypto');
     await popup.keyboard.press('Enter');
@@ -461,6 +518,13 @@ async function until(fn, timeout = 3000) {
     await phone.goto(`chrome-extension://${extId}/src/popup/popup.html`);
     ok('on a touch screen the popup is the whole page', await phone.evaluate(() =>
       matchMedia('(pointer: coarse)').matches && Math.round(document.body.getBoundingClientRect().width) === innerWidth));
+    await phone.tap('.group[data-group="Feed"] .group-main');
+    await phone.waitForSelector('#groups .amount', { visible: true });
+    const stepBoxes = await phone.$$eval('#groups .amount-step', list => list.map(b => {
+      const box = b.getBoundingClientRect();
+      return Math.round(box.width) + 'x' + Math.round(box.height);
+    }));
+    ok('Pause feed\'s − and + are big enough for a finger', stepBoxes.length === 2 && stepBoxes.every(s => s === '44x42'), stepBoxes.join(' '));
     await phone.tap('.tab[data-view="picked"]');
     await phone.waitForSelector('#custom .delete', { visible: true });
     await phone.tap('#custom .delete');
@@ -734,8 +798,38 @@ async function until(fn, timeout = 3000) {
     ok('reels go by default, with the menu item; ordinary posts stay', await isHidden('a-reel') && await isHidden('menu-reels') &&
       !(await isHidden('a-plain')) && !(await isHidden('a-video')) && !(await isHidden('a-suggested')));
     ok('the Messages badge goes', await isHidden('badge'));
+    ok('accounts suggested to follow go by default, in the feed and the right column; your own row and the footer stay',
+      await until(() => isHidden('feed-suggestions')) && await isHidden('right-suggestions') &&
+      !(await isHidden('me-row')) && !(await isHidden('right-footer')) && !(await isHidden('right-column')));
     await page.goto('https://www.instagram.com/reels/', { waitUntil: 'domcontentloaded' });
     ok('the Reels tab with Reels on lands on the feed', await until(() => page.evaluate(() => location.pathname === '/'), 5000));
+    ok('…as For you: Following feed is off by default', await page.evaluate(() => location.search === ''));
+    await setState(s => { s.sites.instagram.presets.followingFeed = true; });
+    await page.goto('https://www.instagram.com/', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    ok('with Following feed on, the home feed opens as Following',
+      await until(() => page.evaluate(() => location.pathname === '/' && location.search === '?variant=following'), 5000), page.url());
+    await page.goto('https://www.instagram.com/?variant=favorites', { waitUntil: 'domcontentloaded' });
+    await sleep(1500);
+    ok('…and Favorites stays Favorites', new URL(page.url()).search === '?variant=favorites', page.url());
+    await setState(s => { s.sites.instagram.presets.followingFeed = false; });
+
+    /* Explore: the grid on /explore/ goes; search, and pages you asked for, stay. */
+    await page.goto('https://www.instagram.com/explore/', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#bfx-style');
+    await sleep(500);
+    ok('Explore is off by default: its grid and menu entry stay', !(await isHidden('explore-grid')) && !(await isHidden('menu-explore')));
+    await setState(s => { s.sites.instagram.presets.explore = true; });
+    ok('with Explore on, the grid on /explore/ and the Explore entry go; the search box and the Search entry stay',
+      await until(() => isHidden('explore-grid')) && await isHidden('menu-explore') &&
+      !(await isHidden('search-box')) && !(await isHidden('menu-search')) && !(await isHidden('menu-messages')));
+    await page.evaluate(() => history.pushState(null, '', '/explore/tags/cats/'));
+    ok('moving on to a tag page in the page brings its grid back', await until(async () => !(await isHidden('explore-grid')), 4000));
+    await page.goto('https://www.instagram.com/', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#bfx-style');
+    await sleep(500);
+    ok('a Search entry that goes to /explore/ stays, and the posts with it',
+      !(await isHidden('menu-explore-search')) && !(await isHidden('a-plain')));
+    await setState(s => { s.sites.instagram.presets.explore = false; });
 
     /* A reel opened by link plays; the reels after it can't be reached. */
     await page.goto('https://www.instagram.com/reels/AAA/', { waitUntil: 'domcontentloaded' });
@@ -771,7 +865,8 @@ async function until(fn, timeout = 3000) {
       ['stories', 'the stories tray', ['stories'], ['posts']],
       ['postActions', 'the button row', ['actions-plain'], ['media-plain', 'likes-plain']],
       ['counts', 'the counts, not the buttons', ['count-likes', 'likes-plain'], ['actions-plain']],
-      ['rightSidebar', 'the right column', ['right-column'], ['posts']],
+      ['rightSidebar', 'the right column', ['right-column'], ['posts', 'feed-suggestions']],
+      ['suggestedAccounts', 'the accounts suggested in the feed and the right column', ['feed-suggestions', 'right-suggestions'], ['posts', 'me-row', 'right-footer']],
       ['threadsLink', 'the Threads link', ['menu-threads'], ['menu-messages']]
     ];
     for (const [id, what, hide, keep] of igCases) {

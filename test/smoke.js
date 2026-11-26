@@ -901,6 +901,52 @@ const bootPopup = async ({ tabAnswers = true, stored = {} } = {}) => {
   await del('Footer links');
   ok('a delete storage refuses offers no Undo', ids() === 'p1,p3' && !shown(), ids());
 }
+/* Pause feed's number of posts, set beside its switch. */
+{
+  const { p, io, $: $p } = await bootPopup({ stored: { bfx: { sites: { facebook: { presets: { feedPause: true } } } } } });
+  p.document.querySelector('.group[data-group="Feed"] .group-main').click();
+  await frame();
+  const row = Array.from(p.document.querySelectorAll('#groups .rule')).find(r => r.querySelector('.rule-text').textContent === 'Pause feed');
+  const field = row && row.querySelector('.amount-num');
+  const [less, more] = row ? row.querySelectorAll('.amount-step') : [];
+  const fb = () => io.stored.bfx.sites.facebook;
+  const type = async (text, how) => {
+    field.value = text;
+    if (how === 'Enter') field.dispatchEvent(new p.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    else field.dispatchEvent(new p.Event('change', { bubbles: true }));
+    await frame();
+  };
+  ok('Pause feed\'s row has − and + around its number, 10 to start, and it is the only row with one',
+    !!field && field.value === '10' && field.type === 'number' && p.document.querySelectorAll('#groups .amount').length === 1,
+    field && field.value);
+  ok('…and no words: the row reads its label and nothing else', row.textContent === 'Pause feed', JSON.stringify(row.textContent));
+  more.click();
+  await frame();
+  ok('+ saves one more', fb().amounts.feedPause === 11 && field.value === '11', JSON.stringify(fb().amounts));
+  more.click(); more.click(); more.click();
+  await frame();
+  ok('three presses in a row all count', fb().amounts.feedPause === 14 && field.value === '14', JSON.stringify(fb().amounts));
+  less.click();
+  await frame();
+  ok('− saves one fewer', fb().amounts.feedPause === 13 && field.value === '13', JSON.stringify(fb().amounts));
+  ok('pressing them leaves the switch as it was', fb().presets.feedPause === true && row.querySelector('.switch input').checked);
+  await type('70');
+  ok('a number typed past 50 is saved as 50, and + stops there', fb().amounts.feedPause === 50 && field.value === '50' && more.disabled && !less.disabled,
+    fb().amounts.feedPause + ' / ' + field.value);
+  await type('2');
+  ok('one under 3 as 3, and − stops there', fb().amounts.feedPause === 3 && field.value === '3' && less.disabled && !more.disabled,
+    fb().amounts.feedPause + ' / ' + field.value);
+  await type('12.4', 'Enter');
+  ok('Enter saves what is typed, whole', fb().amounts.feedPause === 12 && field.value === '12', fb().amounts.feedPause + ' / ' + field.value);
+  await type('');
+  ok('a field emptied goes back to the number saved', fb().amounts.feedPause === 12 && field.value === '12', fb().amounts.feedPause + ' / ' + field.value);
+  io.refuse = 'QUOTA_BYTES quota exceeded';
+  more.click();
+  await frame();
+  ok('a press storage refuses shows the number stored, and says Not saved',
+    fb().amounts.feedPause === 12 && field.value === '12' && $p('tallyWord').textContent === 'Not saved', field.value + ' / ' + $p('tallyWord').textContent);
+  io.refuse = null;
+}
 
 /* A page that never stops changing (a video's progress, a live chat) was
  * scanned every frame, each scan with document-wide queries. */
@@ -1603,6 +1649,197 @@ console.log('\nlinkedin.com as of October 2026 (test/fixtures/linkedin.html)');
   ok('the author is named from the picture\'s label', pick2.author === 'Ana Example', pick2.author);
 }
 
+/* ------------------------------------- Facebook: "Sponsored", more languages -- */
+console.log('\n"Sponsored" in the languages Facebook labels ads with');
+{
+  const words = ['Sponzorováno', 'Sponzorované', 'Sponsorizat', 'Commandité', 'May Sponsor', 'Hirdetés',
+    'Χορηγούμενη', 'ממומן', 'مُموَّل', 'प्रायोजित', 'ได้รับการสนับสนุน', '赞助内容', '贊助'];
+  const post = (id, n, title, line) => '<div><div aria-posinset="' + n + '" id="' + id + '" data-h="300">' +
+    '<h4><a role="link" href="/page' + n + '">' + title + '</a></h4><div><span dir="auto">' + line + '</span></div>' +
+    '<div data-ad-preview="message">Made-up post text</div></div></div>';
+  const posts = words.map((word, i) => post('ad-' + i, 2 * i + 1, 'Shop ' + i, word) +
+    post('page-' + i, 2 * i + 2, word + ' Club', word + ' Club · 2 h'));
+  const w = boot('<!doctype html><html><body><div role="main"><div><div id="feedbox">' + posts.join('') +
+    '<div role="progressbar" id="loading"></div></div></div></div></body></html>');
+  w.BFX_ENGINE.apply(w.BFX_STORE.merge(null));
+  await frame();
+  const by = id => w.document.getElementById(id).getAttribute('data-bfx-hidden-by');
+  const missed = words.filter((word, i) => by('ad-' + i) !== 'sponsored');
+  ok('a post labelled "Sponsored" in each of them goes', !missed.length, 'missed: ' + missed.join(', '));
+  const taken = words.filter((word, i) => by('page-' + i));
+  ok('…and a Page whose name starts with the word keeps its posts', !taken.length, 'hidden: ' + taken.join(', '));
+}
+
+/* ------------------------------------------------ Facebook: Pause feed -- */
+console.log('\nPause feed (test/fixtures/facebook-pause.html)');
+{
+  const w = boot(fs.readFileSync(path.join(__dirname, 'fixtures/facebook-pause.html'), 'utf8'));
+  const $$ = id => w.document.getElementById(id);
+  const S = w.BFX_STORE;
+  const sheet = () => w.document.getElementById('bfx-style').textContent;
+  const state = id => $$(id).hasAttribute('data-bfx-pause-bar') ? 'bar' : $$(id).hasAttribute('data-bfx-paused') ? 'waits' : 'shown';
+  const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => 'w-' + (a + i));
+  const all = (ids, want) => ids.every(id => state(id) === want);
+  const states = ids => ids.map(id => id + ':' + state(id)).join(' ');
+  const click = el => {
+    const ev = new w.MouseEvent('click', { bubbles: true, cancelable: true });
+    el.dispatchEvent(ev);
+    return ev;
+  };
+  const pauseOn = S.merge({ sites: { facebook: { presets: { feedPause: true } } } });
+
+  w.BFX_ENGINE.apply(S.merge(null));
+  await frame();
+  ok('Pause feed is off by default: every post and the skeleton show', all(range(1, 24).concat('loading'), 'shown'));
+
+  w.BFX_ENGINE.apply(pauseOn);
+  await frame();
+  ok('with it on, the first ten posts show, the ad among them not counted',
+    all(range(1, 11), 'shown') && $$('p-3').getAttribute('data-bfx-hidden-by') === 'sponsored', states(range(1, 12)));
+  ok('…the box after the tenth becomes the bar, and everything after it waits, the skeleton too',
+    state('w-12') === 'bar' && all(range(13, 24).concat('loading'), 'waits'), states(range(11, 14).concat('loading')));
+  ok('the bar reads "Paused · 10 more", and what waits is hidden by the sheet',
+    sheet().includes('content:"Paused · 10 more"') && sheet().includes('[data-bfx-paused]:not(#bfx-z){display:none !important}'));
+  const st = w.BFX_ENGINE.stats().presets.feedPause;
+  ok('the popup counts the posts waiting', st && st.count === 12, JSON.stringify(st));
+
+  /* Facebook empties posts that scroll away. */
+  range(1, 5).forEach(id => { $$(id).firstElementChild.textContent = ''; });
+  await frame();
+  ok('posts Facebook empties after they scroll away still count: no more come in', state('w-12') === 'bar' && state('w-13') === 'waits');
+
+  const first = click($$('w-12'));
+  await frame();
+  ok('clicking the bar lets ten more in', first.defaultPrevented && all(range(12, 21), 'shown') && state('w-22') === 'bar' &&
+    all(['w-23', 'w-24', 'loading'], 'waits'), states(range(20, 24).concat('loading')));
+  click($$('w-22'));
+  await frame();
+  ok('…and with fewer than ten left, nothing waits, and the skeleton fetches more', all(range(1, 24).concat('loading'), 'shown'));
+
+  /* More posts arrive: they come before the skeleton. */
+  for (let n = 25; n <= 34; n++) {
+    const box = w.document.createElement('div');
+    box.id = 'w-' + n;
+    box.innerHTML = '<div aria-posinset="' + n + '"><h4><a role="link" href="/friend.' + n + '">Friend ' + n + '</a></h4>Post number ' + n + '</div>';
+    $$('feedbox').insertBefore(box, $$('loading'));
+  }
+  await frame();
+  ok('posts that arrive later are counted on from where it stopped',
+    all(range(25, 31), 'shown') && state('w-32') === 'bar' && all(['w-33', 'w-34', 'loading'], 'waits'),
+    states(range(30, 34).concat('loading')));
+
+  w.BFX_ENGINE.apply(S.merge(null));
+  await frame();
+  const off = click($$('w-32'));
+  ok('switched off, nothing is held back and a click on a post is the post\'s again',
+    !sheet().includes('data-bfx-paused') && !sheet().includes('data-bfx-pause-bar') && !off.defaultPrevented);
+}
+
+/* The number of posts at a time is the person's (asked for 2026-11-26), and
+ * it lives with the other settings. */
+console.log('\nPause feed\'s number of posts');
+{
+  const S = BFX_STORE;
+  const every = stored => S.merge({ sites: { facebook: { amounts: { feedPause: stored } } } }).sites.facebook.amounts.feedPause;
+  ok('Pause feed takes a number, 3 to 50, 10 to start',
+    JSON.stringify(BFX_PRESETS.find(r => r.id === 'feedPause').amount) === '{"min":3,"max":50,"value":10}');
+  ok('…kept with Facebook\'s settings, 10 when nothing is stored, and no other site has one',
+    S.merge(null).sites.facebook.amounts.feedPause === 10 && BFX_SITES.list.every(x => x.id === 'facebook' ||
+      JSON.stringify(S.merge(null).sites[x.id].amounts) === '{}'));
+  ok('a number stored is kept', every(25) === 25 && every(3) === 3 && every(50) === 50);
+  const clamps = [[2, 3], [0, 3], [-7, 3], [51, 50], [1e9, 50], [12.6, 13], [3.2, 3]];
+  ok('one out of range is taken as the nearest end, a fraction as the nearest whole number',
+    clamps.every(([given, want]) => every(given) === want), clamps.map(([g]) => g + '→' + every(g)).join(' '));
+  const junk = ['25', '', null, true, {}, [12], NaN, Infinity, undefined];
+  ok('anything else stored reads as 10', junk.every(v => every(v) === 10), junk.map(v => String(v) + '→' + every(v)).join(' '));
+  ok('…as do numbers stored as a list or as text',
+    [S.merge({ sites: { facebook: { amounts: 'lots' } } }), S.merge({ sites: { facebook: { amounts: [30] } } })]
+      .every(s => JSON.stringify(s.sites.facebook.amounts) === '{"feedPause":10}'));
+  ok('a number for a switch that takes none is not kept',
+    JSON.stringify(S.merge({ sites: { facebook: { amounts: { stories: 5 } } } }).sites.facebook.amounts) === '{"feedPause":10}');
+  ok('a page runs on its site\'s numbers', S.view(S.merge({ sites: { facebook: { amounts: { feedPause: 7 } } } }), 'facebook').amounts.feedPause === 7);
+
+  /* The service worker loads no site's rules, and writes the whole state
+   * back when the pause shortcut flips it. */
+  const worker = { self: {} };
+  for (const file of ['src/common/sites.js', 'src/common/storage.js']) {
+    vm.runInNewContext(fs.readFileSync(path.join(root, file), 'utf8'), worker);
+  }
+  const fromWorker = JSON.parse(JSON.stringify(worker.self.BFX_STORE.merge({ sites: { facebook: { amounts: { feedPause: 25, bad: 'x' } } } })));
+  ok('the service worker, which has no site rules, keeps the number it stores back', fromWorker.sites.facebook.amounts.feedPause === 25 &&
+    !('bad' in fromWorker.sites.facebook.amounts) && S.merge(fromWorker).sites.facebook.amounts.feedPause === 25,
+    JSON.stringify(fromWorker.sites.facebook.amounts));
+  const wide = JSON.parse(JSON.stringify(worker.self.BFX_STORE.merge({ sites: { facebook: { amounts: { feedPause: 99 } } } })));
+  ok('…even one out of range, which the page reads as 50', wide.sites.facebook.amounts.feedPause === 99 && S.merge(wide).sites.facebook.amounts.feedPause === 50);
+
+  const chosen = S.merge({ sites: { facebook: { presets: { feedPause: true }, amounts: { feedPause: 25 } } } });
+  const back = S.fromBackup(JSON.parse(JSON.stringify(S.toBackup(chosen))));
+  ok('a backup carries the number', JSON.stringify(back) === JSON.stringify(chosen) && back.sites.facebook.amounts.feedPause === 25);
+  const edited = S.fromBackup({ app: 'xrnsoc', version: 2, settings: { sites: { facebook: { amounts: { feedPause: 80 } }, reddit: { amounts: { feedPause: 5 } } } } });
+  ok('a hand-edited backup\'s number comes back in range, and only where a switch takes one',
+    edited.sites.facebook.amounts.feedPause === 50 && JSON.stringify(edited.sites.reddit.amounts) === '{}');
+  const before = S.fromBackup({ app: 'xrnsoc', version: 2, settings: { sites: { facebook: { presets: { feedPause: true } } } } });
+  ok('a backup from before the number reads as 10', before.sites.facebook.amounts.feedPause === 10);
+
+  /* The page, on the fixture of 24 posts with an ad third. */
+  const html = fs.readFileSync(path.join(__dirname, 'fixtures/facebook-pause.html'), 'utf8');
+  const feedOf = w => {
+    const $$ = id => w.document.getElementById(id);
+    const state = id => $$(id).hasAttribute('data-bfx-pause-bar') ? 'bar' : $$(id).hasAttribute('data-bfx-paused') ? 'waits' : 'shown';
+    return {
+      state,
+      all: (ids, want) => ids.every(id => state(id) === want),
+      states: ids => ids.map(id => id + ':' + state(id)).join(' '),
+      sheet: () => w.document.getElementById('bfx-style').textContent,
+      click: id => $$(id).dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true }))
+    };
+  };
+  const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => 'w-' + (a + i));
+  const set = (w, n) => w.BFX_STORE.merge({ sites: { facebook: { presets: { feedPause: true }, amounts: { feedPause: n } } } });
+
+  const w = boot(html);
+  const f = feedOf(w);
+  w.BFX_ENGINE.apply(set(w, 5));
+  await frame();
+  ok('set to 5, five posts show, the ad not counted, then the bar, and the rest wait',
+    f.all(range(1, 6), 'shown') && f.state('w-7') === 'bar' && f.all(range(8, 24).concat('loading'), 'waits'), f.states(range(5, 9)));
+  ok('…and the bar reads "Paused · 5 more"', f.sheet().includes('content:"Paused · 5 more"') && !f.sheet().includes('10 more'));
+  f.click('w-7');
+  await frame();
+  ok('a click lets five more in', f.all(range(7, 11), 'shown') && f.state('w-12') === 'bar' && f.state('w-13') === 'waits', f.states(range(10, 14)));
+  w.BFX_ENGINE.apply(set(w, 12));
+  await frame();
+  ok('raised to 12 on the open tab, the posts since the last click become twelve, and the bar says 12',
+    f.all(range(12, 18), 'shown') && f.state('w-19') === 'bar' && f.all(range(20, 24).concat('loading'), 'waits') &&
+    f.sheet().includes('content:"Paused · 12 more"'), f.states(range(17, 21)));
+  w.BFX_ENGINE.apply(set(w, 3));
+  await frame();
+  ok('lowered to 3, no post already showing goes', f.all(range(1, 18), 'shown') && f.state('w-19') === 'bar' &&
+    f.sheet().includes('content:"Paused · 3 more"'), f.states(range(17, 21)));
+  f.click('w-19');
+  await frame();
+  ok('…and the next click lets three in', f.all(range(19, 21), 'shown') && f.state('w-22') === 'bar' &&
+    f.all(['w-23', 'w-24', 'loading'], 'waits'), f.states(range(20, 24)));
+
+  /* Settings reach a page through merge(); one handed a number past it is
+   * still kept in range there. */
+  const w2 = boot(html);
+  const g = feedOf(w2);
+  const raw = n => { const s = set(w2, 10); s.sites.facebook.amounts.feedPause = n; return s; };
+  w2.BFX_ENGINE.apply(raw(1));
+  await frame();
+  ok('a page handed 1 pauses after 3', g.all(range(1, 4), 'shown') && g.state('w-5') === 'bar' && g.sheet().includes('content:"Paused · 3 more"'),
+    g.states(range(3, 6)));
+  w2.BFX_ENGINE.apply(raw('many'));
+  await frame();
+  ok('…handed text, after 10', g.state('w-12') === 'bar' && g.all(range(1, 11), 'shown') && g.sheet().includes('content:"Paused · 10 more"'),
+    g.states(range(10, 13)));
+  w2.BFX_ENGINE.apply(raw(1000));
+  await frame();
+  ok('…and handed 1000, after 50: all 24 here show', g.all(range(1, 24).concat('loading'), 'shown') && g.sheet().includes('content:"Paused · 50 more"'),
+    g.states(range(22, 24).concat('loading')));
+}
+
 /* ---------------------------------------------- instagram.com, October 2026 -- */
 console.log('\ninstagram.com as of October 2026 (test/fixtures/instagram.html)');
 {
@@ -1625,15 +1862,68 @@ console.log('\ninstagram.com as of October 2026 (test/fixtures/instagram.html)')
   ok('recommended reels are hidden by default in the feed, with the Reels menu item', by('a-reel') === 'reels' && sheet().includes('a[href="/reels/"]:not(#bfx-z){display:none'), 'got ' + by('a-reel'));
   ok('ordinary and suggested posts stay by default', ['a-plain', 'a-suggested', 'a-video', 'a-kw'].every(shown));
   ok('the Messages badge goes, and the tab title count', by('badge') === 'badges' && w.document.title === 'Instagram');
+  ok('accounts suggested to follow go by default, between the posts and in the right column',
+    by('feed-suggestions') === 'suggestedAccounts' && by('right-suggestions') === 'suggestedAccounts',
+    'got ' + by('feed-suggestions') + ', ' + by('right-suggestions'));
+  ok('…and only those boxes: the posts, your own account row and the footer stay',
+    ['a-plain', 'a-suggested', 'posts', 'me-row', 'right-footer', 'right-column'].every(shown));
   const ig = path => w.BFX_ENGINE.redirectFor(S.merge(null), { hostname: 'www.instagram.com', pathname: path });
   ok('with Reels on, the Reels tab sends you to the feed', ig('/reels/') === '/' && ig('/reels') === '/');
   ok('…but a single reel, from a message or a link, still opens', ig('/reels/CCC/') === null && ig('/reel/CCC/') === null && ig('/reels/audio/123/') === null);
+  ok('the home feed opens as For you by default', ig('/') === null);
+  const following = S.merge({ sites: { instagram: { presets: { followingFeed: true } } } });
+  const igf = (pathname, search) => w.BFX_ENGINE.redirectFor(following, { hostname: 'www.instagram.com', pathname, search });
+  ok('with Following feed on, the home feed is sent to Following, from no variant or from For you',
+    igf('/', '') === '/?variant=following' && igf('/', '?variant=home') === '/?variant=following', igf('/', '') + ' ' + igf('/', '?variant=home'));
+  ok('…keeping the rest of the address', igf('/', '?hl=en') === '/?hl=en&variant=following', igf('/', '?hl=en'));
+  ok('…and leaves Following, Favorites and every other page as they are',
+    igf('/', '?variant=following') === null && igf('/', '?variant=favorites') === null && igf('/alice_example/', '') === null && igf('/p/AAA/', '') === null);
+  ok('…and the Reels tab lands straight on Following', igf('/reels/', '') === '/?variant=following');
+  ok('…but not while paused', w.BFX_ENGINE.redirectFor(S.merge({ enabled: false, sites: { instagram: { presets: { followingFeed: true } } } }),
+    { hostname: 'www.instagram.com', pathname: '/', search: '' }) === null);
+
+  /* Explore: the grid on /explore/ goes, a search box above it stays. */
+  const exploreHtml = fs.readFileSync(path.join(__dirname, 'fixtures/instagram-explore.html'), 'utf8');
+  const exploreOn = S.merge({ sites: { instagram: { presets: { explore: true } } } });
+  const ex = boot(exploreHtml, 'https://www.instagram.com/explore/');
+  const exBy = id => ex.document.getElementById(id).getAttribute('data-bfx-hidden-by');
+  const exShown = id => !ex.document.getElementById(id).closest('[data-bfx-hidden-by]');
+  ex.BFX_ENGINE.apply(S.merge(null));
+  await frame();
+  ok('Explore is off by default: the grid stays', exShown('explore-grid'));
+  ex.BFX_ENGINE.apply(exploreOn);
+  await frame();
+  ok('with Explore on, the grid on /explore/ goes and the search box above it stays',
+    exBy('explore-grid') === 'explore' && exShown('search-box'), 'got ' + exBy('explore-grid') + ', ' + exBy('explore-page'));
+  ok('…and the menu entry labelled Explore goes with it',
+    ex.document.getElementById('bfx-style').textContent.includes('a[href="/explore/"]:has(svg[aria-label="Explore"])'));
+  ex.history.pushState(null, '', '/explore/tags/cats/');
+  ex.BFX_ENGINE.route();
+  await frame();
+  ok('moving on to a tag page in the page brings its grid back', exShown('explore-grid'), 'hidden by ' + exBy('explore-grid'));
+  ex.history.pushState(null, '', '/explore/');
+  ex.BFX_ENGINE.route();
+  await frame();
+  ok('…and back on /explore/ it goes again', exBy('explore-grid') === 'explore');
+  const exNoSearch = boot(exploreHtml.replace(/<div id="search-box"[^]*?<\/div>/, ''), 'https://www.instagram.com/explore');
+  exNoSearch.BFX_ENGINE.apply(exploreOn);
+  await frame();
+  ok('with no search box on the page, everything around the grid goes',
+    exNoSearch.document.getElementById('explore-page').getAttribute('data-bfx-hidden-by') === 'explore');
+  const exTag = boot(exploreHtml, 'https://www.instagram.com/explore/tags/cats/');
+  exTag.BFX_ENGINE.apply(exploreOn);
+  await frame();
+  ok('a tag page opened directly keeps its grid', !exTag.document.getElementById('explore-grid').closest('[data-bfx-hidden-by]'));
+  w.BFX_ENGINE.apply(exploreOn);
+  await frame();
+  ok('on the home feed, Explore hides no post', ['a-plain', 'a-suggested', 'posts'].every(shown));
   const dm = boot(html, 'https://www.instagram.com/direct/t/123/');
   dm.BFX_ENGINE.apply(dm.BFX_STORE.merge({ keywords: { enabled: true, terms: ['crypto'] } }));
   await frame();
   const dmHidden = Array.from(dm.document.querySelectorAll('article[data-bfx-hidden-by], article [data-bfx-hidden-by]'));
   ok('in messages nothing is hidden: a reel or a word someone sent you is yours to see', !dmHidden.length,
     dmHidden.map(e => e.id + ':' + e.getAttribute('data-bfx-hidden-by')).join());
+  ok('nor are accounts someone suggests there', !dm.document.querySelector('[data-bfx-hidden-by="suggestedAccounts"]'));
 
   w.BFX_ENGINE.apply(only(['suggested']));
   await frame();
@@ -1643,8 +1933,13 @@ console.log('\ninstagram.com as of October 2026 (test/fixtures/instagram.html)')
   await frame();
   ok('the stories tray and the right column go as whole blocks, the posts stay',
     by('stories') === 'stories' && by('right-column') === 'rightSidebar' && shown('posts'));
+  ok('the accounts suggested between the posts are not taken for the right column', shown('feed-suggestions'));
+  w.BFX_ENGINE.apply(only([]));
+  await frame();
+  ok('with Suggested accounts off, both boxes are back', shown('feed-suggestions') && shown('right-suggestions'));
   const counts = (w.BFX_ENGINE.apply(S.merge(null)), await frame(), w.BFX_ENGINE.stats().presets);
   ok('the popup counts the two ads and the reel', counts.sponsored.count === 2 && counts.reels.count >= 1, JSON.stringify(counts));
+  ok('…and the two boxes of suggested accounts', counts.suggestedAccounts && counts.suggestedAccounts.count === 2, JSON.stringify(counts.suggestedAccounts));
 
   w.BFX_ENGINE.apply(S.merge({ keywords: { enabled: true, terms: ['crypto'] } }));
   await frame();
