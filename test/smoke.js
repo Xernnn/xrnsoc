@@ -1644,6 +1644,42 @@ console.log('\ninstagram.com as of October 2026 (test/fixtures/instagram.html)')
   ok('…and the Reels tab lands straight on Following', igf('/reels/', '') === '/?variant=following');
   ok('…but not while paused', w.BFX_ENGINE.redirectFor(S.merge({ enabled: false, sites: { instagram: { presets: { followingFeed: true } } } }),
     { hostname: 'www.instagram.com', pathname: '/', search: '' }) === null);
+
+  /* Explore: the grid on /explore/ goes, a search box above it stays. */
+  const exploreHtml = fs.readFileSync(path.join(__dirname, 'fixtures/instagram-explore.html'), 'utf8');
+  const exploreOn = S.merge({ sites: { instagram: { presets: { explore: true } } } });
+  const ex = boot(exploreHtml, 'https://www.instagram.com/explore/');
+  const exBy = id => ex.document.getElementById(id).getAttribute('data-bfx-hidden-by');
+  const exShown = id => !ex.document.getElementById(id).closest('[data-bfx-hidden-by]');
+  ex.BFX_ENGINE.apply(S.merge(null));
+  await frame();
+  ok('Explore is off by default: the grid stays', exShown('explore-grid'));
+  ex.BFX_ENGINE.apply(exploreOn);
+  await frame();
+  ok('with Explore on, the grid on /explore/ goes and the search box above it stays',
+    exBy('explore-grid') === 'explore' && exShown('search-box'), 'got ' + exBy('explore-grid') + ', ' + exBy('explore-page'));
+  ok('…and the menu entry labelled Explore goes with it',
+    ex.document.getElementById('bfx-style').textContent.includes('a[href="/explore/"]:has(svg[aria-label="Explore"])'));
+  ex.history.pushState(null, '', '/explore/tags/cats/');
+  ex.BFX_ENGINE.route();
+  await frame();
+  ok('moving on to a tag page in the page brings its grid back', exShown('explore-grid'), 'hidden by ' + exBy('explore-grid'));
+  ex.history.pushState(null, '', '/explore/');
+  ex.BFX_ENGINE.route();
+  await frame();
+  ok('…and back on /explore/ it goes again', exBy('explore-grid') === 'explore');
+  const exNoSearch = boot(exploreHtml.replace(/<div id="search-box"[^]*?<\/div>/, ''), 'https://www.instagram.com/explore');
+  exNoSearch.BFX_ENGINE.apply(exploreOn);
+  await frame();
+  ok('with no search box on the page, everything around the grid goes',
+    exNoSearch.document.getElementById('explore-page').getAttribute('data-bfx-hidden-by') === 'explore');
+  const exTag = boot(exploreHtml, 'https://www.instagram.com/explore/tags/cats/');
+  exTag.BFX_ENGINE.apply(exploreOn);
+  await frame();
+  ok('a tag page opened directly keeps its grid', !exTag.document.getElementById('explore-grid').closest('[data-bfx-hidden-by]'));
+  w.BFX_ENGINE.apply(exploreOn);
+  await frame();
+  ok('on the home feed, Explore hides no post', ['a-plain', 'a-suggested', 'posts'].every(shown));
   const dm = boot(html, 'https://www.instagram.com/direct/t/123/');
   dm.BFX_ENGINE.apply(dm.BFX_STORE.merge({ keywords: { enabled: true, terms: ['crypto'] } }));
   await frame();

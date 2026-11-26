@@ -98,6 +98,7 @@ async function until(fn, timeout = 3000) {
     const linkedinDoc = fs.readFileSync(path.join(fixtures, 'linkedin.html'), 'utf8');
     const instagramDoc = fs.readFileSync(path.join(fixtures, 'instagram.html'), 'utf8');
     const instagramReelsDoc = fs.readFileSync(path.join(fixtures, 'instagram-reels.html'), 'utf8');
+    const instagramExploreDoc = fs.readFileSync(path.join(fixtures, 'instagram-explore.html'), 'utf8');
     const twitchDoc = fs.readFileSync(path.join(fixtures, 'twitch.html'), 'utf8');
     const tiktokDoc = fs.readFileSync(path.join(fixtures, 'tiktok.html'), 'utf8');
     const pixivDoc = fs.readFileSync(path.join(fixtures, 'pixiv.html'), 'utf8');
@@ -115,7 +116,7 @@ async function until(fn, timeout = 3000) {
       } else if (/(^|\.)linkedin\.com$/.test(url.hostname) && req.resourceType() === 'document') {
         req.respond({ status: 200, contentType: 'text/html; charset=utf-8', body: linkedinDoc });
       } else if (/(^|\.)instagram\.com$/.test(url.hostname) && req.resourceType() === 'document') {
-        req.respond({ status: 200, contentType: 'text/html; charset=utf-8', body: /^\/reels?\/\w/.test(url.pathname) ? instagramReelsDoc : instagramDoc });
+        req.respond({ status: 200, contentType: 'text/html; charset=utf-8', body: /^\/reels?\/\w/.test(url.pathname) ? instagramReelsDoc : /^\/explore(\/|$)/.test(url.pathname) ? instagramExploreDoc : instagramDoc });
       } else if (/(^|\.)twitch\.tv$/.test(url.hostname) && req.resourceType() === 'document') {
         req.respond({ status: 200, contentType: 'text/html; charset=utf-8', body: twitchDoc });
       } else if (/(^|\.)tiktok\.com$/.test(url.hostname) && req.resourceType() === 'document') {
@@ -748,6 +749,24 @@ async function until(fn, timeout = 3000) {
     await sleep(1500);
     ok('…and Favorites stays Favorites', new URL(page.url()).search === '?variant=favorites', page.url());
     await setState(s => { s.sites.instagram.presets.followingFeed = false; });
+
+    /* Explore: the grid on /explore/ goes; search, and pages you asked for, stay. */
+    await page.goto('https://www.instagram.com/explore/', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#bfx-style');
+    await sleep(500);
+    ok('Explore is off by default: its grid and menu entry stay', !(await isHidden('explore-grid')) && !(await isHidden('menu-explore')));
+    await setState(s => { s.sites.instagram.presets.explore = true; });
+    ok('with Explore on, the grid on /explore/ and the Explore entry go; the search box and the Search entry stay',
+      await until(() => isHidden('explore-grid')) && await isHidden('menu-explore') &&
+      !(await isHidden('search-box')) && !(await isHidden('menu-search')) && !(await isHidden('menu-messages')));
+    await page.evaluate(() => history.pushState(null, '', '/explore/tags/cats/'));
+    ok('moving on to a tag page in the page brings its grid back', await until(async () => !(await isHidden('explore-grid')), 4000));
+    await page.goto('https://www.instagram.com/', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#bfx-style');
+    await sleep(500);
+    ok('a Search entry that goes to /explore/ stays, and the posts with it',
+      !(await isHidden('menu-explore-search')) && !(await isHidden('a-plain')));
+    await setState(s => { s.sites.instagram.presets.explore = false; });
 
     /* A reel opened by link plays; the reels after it can't be reached. */
     await page.goto('https://www.instagram.com/reels/AAA/', { waitUntil: 'domcontentloaded' });

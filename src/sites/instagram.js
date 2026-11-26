@@ -18,9 +18,13 @@
  *   - the stories tray sits above the feed and the right column beside it;
  *     neither has a hook, so each is found by what it holds (a canvas ring,
  *     the /explore/people/ link) as the largest box without the feed in it
+ * Not yet checked on the live site, built from what other extensions key on:
  *   - "Suggested for you", accounts to follow, is a box with a "See all"
  *     link to /explore/people/ and a Follow button per account, in the
  *     right column and now and then between posts
+ *   - /explore/ is a grid of posts picked for you, tiles linking to /p/<id>/
+ *     and /reel/<id>/, with a search box above it on a phone; the menu
+ *     links to it as Explore, or as Search where that is where search is
  */
 (function (root) {
   'use strict';
@@ -66,6 +70,17 @@
       id: 'followingFeed',
       group: 'Feed',
       label: 'Following feed'
+    },
+    {
+      id: 'explore',
+      group: 'Feed',
+      label: 'Explore',
+      /* The menu's entry, where it is the Explore one: on a phone the same
+       * address is the Search entry, which stays. */
+      css: [
+        'a[href="/explore/"]:has(svg[aria-label="Explore"])',
+        'a[href="/explore/"]:has(svg[aria-label="Khám phá"])'
+      ]
     },
     {
       id: 'videoPosts',
@@ -232,6 +247,21 @@
     });
   }
 
+  /* On /explore/ itself, the grid of posts picked for you: the largest box
+   * around its first tile that holds no search box, so a search field above
+   * the grid stays. A tag, place or search page is one you asked for. */
+  var EXPLORE_PATH = /^\/explore\/?$/;
+  var SEARCH = 'input, [role="search"]';
+
+  function hideExplore(api) {
+    if (!EXPLORE_PATH.test(location.pathname)) return;
+    var main = document.querySelector('main');
+    var tile = main && main.querySelector('a[href^="/p/"], a[href^="/reel/"]');
+    if (!tile) return;
+    var box = api.blockOf(tile, SEARCH, main) || api.climbTo(tile, main, 40);
+    if (box && box !== main && !box.querySelector(SEARCH)) api.hide(box, 'explore');
+  }
+
   /* Counts on the menu's Messages and Notifications entries: digit-only
    * text inside a menu link; the box around the digits is the red circle. */
   function stripBadges(api) {
@@ -347,6 +377,7 @@
       stories: besideFeed('stories', 'ul canvas'),
       rightSidebar: besideFeed('rightSidebar', PEOPLE, true),
       suggestedAccounts: hideSuggestedAccounts,
+      explore: hideExplore,
       badges: stripBadges
     },
     /* With Reels on, the Reels tab itself sends you to the feed. A single
@@ -368,8 +399,9 @@
     skip: function (unit) {
       return inMessages() || !!unit.closest('[role="dialog"]');
     },
-    pageKey: function () {
-      return inMessages() ? 'messages' : '';
+    pageKey: function (view) {
+      if (inMessages()) return 'messages';
+      return view.presets.explore && EXPLORE_PATH.test(location.pathname) ? 'explore' : '';
     },
     picker: {
       authorOf: authorOf,
