@@ -79,7 +79,7 @@ Nothing leaves your browser: no network requests, no analytics, no accounts.
 
 | Site | Switches | On by default | Status |
 | --- | --- | --- | --- |
-| Facebook | 34 | 7 | Checked on the live site, October 2026 |
+| Facebook | 35 | 7 | Checked on the live site, October 2026 |
 | Reddit | 23 | 6 | Checked on the live site, October 2026 |
 | X | 24 | 5 | Checked on the live site, October 2026 |
 | LinkedIn | 19 | 3 | Checked on the live site, October 2026 |
@@ -315,8 +315,9 @@ all of them.
 - **Instagram:** only the home feed is mapped, so ads in Stories, Explore and
   the Reels tab aren't covered.
 - **Built against made-up pages, not yet checked on the live sites:**
-  Instagram's *Suggested accounts*, *Following feed* and *Explore*. `test/live/check.js` checks it on a
-  signed-in browser.
+  Instagram's *Suggested accounts*, *Following feed* and *Explore*, and
+  Facebook's *Pause feed*. `test/live/check.js` has probes for the first
+  and the third.
 - **Reddit:** the picker can't reach inside Reddit's own components (votes,
   counts, share). Use the switches for those.
 - **Facebook Story ads** are untested: the story viewer couldn't be stepped

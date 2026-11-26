@@ -40,6 +40,22 @@
     'div[role="feed"] > div'
   ].join(',');
 
+  /* Pause feed: how many posts come in at a time, and the bar that holds
+   * the rest back. The bar is a box of the feed's own, its insides hidden,
+   * drawn the way the "show" bars are. */
+  var PAUSE_EVERY = 10;
+  var PAUSED = 'data-bfx-paused';
+  var PAUSE_BAR = 'data-bfx-pause-bar';
+  var PAUSE_STYLE = [
+    '[' + PAUSE_BAR + ']:not(#bfx-z):not(#bfx-y){display:block !important;cursor:pointer}',
+    '[' + PAUSE_BAR + ']:not(#bfx-z):not(#bfx-y) > *{display:none !important}',
+    '[' + PAUSE_BAR + ']::before{content:"Paused · ' + PAUSE_EVERY + ' more";display:block;' +
+      'margin:0 0 12px;padding:9px 14px;border-radius:8px;' +
+      'background:var(--card-background,#f0f2f5);color:var(--secondary-text,#65676b);' +
+      'font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}',
+    '[' + PAUSE_BAR + ']:hover::before{color:var(--primary-text,#050505)}'
+  ].join('\n');
+
   var PRESETS = [
     /* ----------------------------------------------------------- ads ---- */
     {
@@ -97,6 +113,14 @@
       /* The posts go at once; the engine then hides the box around them, so
        * the loading skeleton below stops pulling in more. */
       css: ['div[aria-posinset]', 'div[role="feed"]', 'div[data-pagelet^="FeedUnit"]']
+    },
+    {
+      id: 'feedPause',
+      group: 'Feed',
+      label: 'Pause feed',
+      /* What waits behind the bar; the bar itself outranks this. */
+      css: ['[' + PAUSED + ']'],
+      style: PAUSE_STYLE
     },
     {
       id: 'stories',
@@ -549,14 +573,81 @@
    * in view Facebook keeps fetching more posts. The main column's posts, not
    * a post open in a dialog; whether the first post is itself already hidden
    * by another rule does not matter. */
-  function hideFeed(api) {
+  function feedBox() {
     var post = document.querySelector('[role="main"] [aria-posinset]') || document.querySelector('[aria-posinset]');
-    if (!post) return;
+    if (!post) return null;
     var node = post;
     while (node.parentElement && node.parentElement.childElementCount < 3) node = node.parentElement;
     var feed = node.parentElement;
-    if (!feed || feed === document.body || feed.matches('[role="main"], [role="main"] > *')) return;
-    api.hide(feed, 'feed');
+    if (!feed || feed === document.body || feed.matches('[role="main"], [role="main"] > *')) return null;
+    return feed;
+  }
+
+  function hideFeed(api) {
+    var feed = feedBox();
+    if (feed) api.hide(feed, 'feed');
+  }
+
+  /* Pause feed: the feed's boxes in order, the posts in them counted as
+   * they show, up to PAUSE_EVERY at a time. A post another rule hides, or
+   * one not filled in yet, does not count; one counted keeps counting when
+   * Facebook empties it after it scrolls away, so scrolling back up does
+   * not let more in. Once the count is reached, the first box after the
+   * last post counted becomes the bar and everything after it waits,
+   * the loading skeleton too: out of view, it fetches no more posts. A
+   * click on the bar lets the next PAUSE_EVERY in. */
+  var pauseApi = null;
+
+  function showsPost(box, api) {
+    var post = box.matches('[aria-posinset]') ? box : box.querySelector('[aria-posinset]');
+    return !!post && !post.closest(api.HIDDEN) && !!(post.textContent || '').trim();
+  }
+
+  function pauseFeed(api) {
+    pauseApi = api;
+    var feed = feedBox();
+    if (!feed) return;
+    var count = feed.__bfxPause || (feed.__bfxPause = { limit: PAUSE_EVERY, seen: 0 });
+    var boxes = feed.children;
+    var last = -1;
+    for (var i = 0; i < boxes.length; i++) {
+      if (!boxes[i].__bfxCounted && count.seen < count.limit && showsPost(boxes[i], api)) {
+        boxes[i].__bfxCounted = true;
+        count.seen++;
+      }
+      if (boxes[i].__bfxCounted) last = i;
+    }
+    var bar = false;
+    for (var j = 0; j < boxes.length; j++) {
+      var box = boxes[j];
+      var waits = count.seen >= count.limit && j > last;
+      if (waits && !bar) {
+        bar = true;
+        box.removeAttribute(PAUSED);
+        if (!box.hasAttribute(PAUSE_BAR)) box.setAttribute(PAUSE_BAR, '');
+      } else if (waits) {
+        box.removeAttribute(PAUSE_BAR);
+        if (!box.hasAttribute(PAUSED)) box.setAttribute(PAUSED, '');
+      } else {
+        box.removeAttribute(PAUSE_BAR);
+        box.removeAttribute(PAUSED);
+      }
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', function (e) {
+      var bar = e.target && e.target.closest && e.target.closest('[' + PAUSE_BAR + ']');
+      if (!bar || !pauseApi || document.documentElement.hasAttribute('data-bfx-picking')) return;
+      var s = pauseApi.state();
+      if (!s || !s.enabled || !s.presets.feedPause) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var count = bar.parentElement && bar.parentElement.__bfxPause;
+      if (count) count.limit += PAUSE_EVERY;
+      bar.removeAttribute(PAUSE_BAR);
+      pauseFeed(pauseApi);
+    }, true);
   }
 
   /* Everything that is not the feed: stories, reels, marketplace, search,
@@ -711,7 +802,8 @@
       rightAds: hideSidebarAds,
       adSweep: sweepAds,
       postActions: hideActionBars,
-      feed: hideFeed
+      feed: hideFeed,
+      feedPause: pauseFeed
     },
     redirect: function (s, loc) {
       if (!s.presets.reels) return null;

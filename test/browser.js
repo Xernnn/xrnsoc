@@ -312,6 +312,28 @@ async function until(fn, timeout = 3000) {
     await sleep(500);
     ok('with the Reels rule off, the reel stays open', new URL(page.url()).pathname === '/reel/123456/', page.url());
 
+    /* ---------------------------------------------------------- pause feed -- */
+    console.log('\npause feed');
+    await resetState();
+    served = fs.readFileSync(path.join(fixtures, 'facebook-pause.html'), 'utf8');
+    await load();
+    await sleep(400);
+    ok('off by default, the whole feed shows', !(await isHidden('w-13')) && !(await isHidden('loading')));
+    await setState('s => { s.sites.facebook.presets.feedPause = true; }');
+    const barText = () => page.evaluate(() => getComputedStyle(document.getElementById('w-12'), '::before').content);
+    ok('with Pause feed on, ten posts show, then the bar; the rest and the skeleton wait',
+      await until(() => isHidden('w-13')) && await isHidden('w-24') && await isHidden('loading') &&
+      !(await isHidden('w-11')) && !(await isHidden('w-12')) && await isHidden('p-12') && /Paused · 10 more/.test(await barText()),
+      await barText());
+    await page.click('#w-12');
+    ok('clicking the bar lets ten more in', await until(async () => !(await isHidden('p-12')) && !(await isHidden('w-21'))) &&
+      await isHidden('p-22') && await isHidden('loading'));
+    await setState('s => { s.sites.facebook.presets.feedPause = false; }');
+    ok('switching it off shows everything again', await until(async () => !(await isHidden('w-24')) && !(await isHidden('p-22'))));
+    served = fs.readFileSync(path.join(fixtures, 'feed.html'), 'utf8');
+    await resetState();
+    await load();
+
     /* --------------------------------------------------------------- popup -- */
     console.log('\npopup');
     await resetState();

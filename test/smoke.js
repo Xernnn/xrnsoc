@@ -1603,6 +1603,71 @@ console.log('\nlinkedin.com as of October 2026 (test/fixtures/linkedin.html)');
   ok('the author is named from the picture\'s label', pick2.author === 'Ana Example', pick2.author);
 }
 
+/* ------------------------------------------------ Facebook: Pause feed -- */
+console.log('\nPause feed (test/fixtures/facebook-pause.html)');
+{
+  const w = boot(fs.readFileSync(path.join(__dirname, 'fixtures/facebook-pause.html'), 'utf8'));
+  const $$ = id => w.document.getElementById(id);
+  const S = w.BFX_STORE;
+  const sheet = () => w.document.getElementById('bfx-style').textContent;
+  const state = id => $$(id).hasAttribute('data-bfx-pause-bar') ? 'bar' : $$(id).hasAttribute('data-bfx-paused') ? 'waits' : 'shown';
+  const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => 'w-' + (a + i));
+  const all = (ids, want) => ids.every(id => state(id) === want);
+  const states = ids => ids.map(id => id + ':' + state(id)).join(' ');
+  const click = el => {
+    const ev = new w.MouseEvent('click', { bubbles: true, cancelable: true });
+    el.dispatchEvent(ev);
+    return ev;
+  };
+  const pauseOn = S.merge({ sites: { facebook: { presets: { feedPause: true } } } });
+
+  w.BFX_ENGINE.apply(S.merge(null));
+  await frame();
+  ok('Pause feed is off by default: every post and the skeleton show', all(range(1, 24).concat('loading'), 'shown'));
+
+  w.BFX_ENGINE.apply(pauseOn);
+  await frame();
+  ok('with it on, the first ten posts show, the ad among them not counted',
+    all(range(1, 11), 'shown') && $$('p-3').getAttribute('data-bfx-hidden-by') === 'sponsored', states(range(1, 12)));
+  ok('…the box after the tenth becomes the bar, and everything after it waits, the skeleton too',
+    state('w-12') === 'bar' && all(range(13, 24).concat('loading'), 'waits'), states(range(11, 14).concat('loading')));
+  ok('the bar reads "Paused · 10 more", and what waits is hidden by the sheet',
+    sheet().includes('content:"Paused · 10 more"') && sheet().includes('[data-bfx-paused]:not(#bfx-z){display:none !important}'));
+  const st = w.BFX_ENGINE.stats().presets.feedPause;
+  ok('the popup counts the posts waiting', st && st.count === 12, JSON.stringify(st));
+
+  /* Facebook empties posts that scroll away. */
+  range(1, 5).forEach(id => { $$(id).firstElementChild.textContent = ''; });
+  await frame();
+  ok('posts Facebook empties after they scroll away still count: no more come in', state('w-12') === 'bar' && state('w-13') === 'waits');
+
+  const first = click($$('w-12'));
+  await frame();
+  ok('clicking the bar lets ten more in', first.defaultPrevented && all(range(12, 21), 'shown') && state('w-22') === 'bar' &&
+    all(['w-23', 'w-24', 'loading'], 'waits'), states(range(20, 24).concat('loading')));
+  click($$('w-22'));
+  await frame();
+  ok('…and with fewer than ten left, nothing waits, and the skeleton fetches more', all(range(1, 24).concat('loading'), 'shown'));
+
+  /* More posts arrive: they come before the skeleton. */
+  for (let n = 25; n <= 34; n++) {
+    const box = w.document.createElement('div');
+    box.id = 'w-' + n;
+    box.innerHTML = '<div aria-posinset="' + n + '"><h4><a role="link" href="/friend.' + n + '">Friend ' + n + '</a></h4>Post number ' + n + '</div>';
+    $$('feedbox').insertBefore(box, $$('loading'));
+  }
+  await frame();
+  ok('posts that arrive later are counted on from where it stopped',
+    all(range(25, 31), 'shown') && state('w-32') === 'bar' && all(['w-33', 'w-34', 'loading'], 'waits'),
+    states(range(30, 34).concat('loading')));
+
+  w.BFX_ENGINE.apply(S.merge(null));
+  await frame();
+  const off = click($$('w-32'));
+  ok('switched off, nothing is held back and a click on a post is the post\'s again',
+    !sheet().includes('data-bfx-paused') && !sheet().includes('data-bfx-pause-bar') && !off.defaultPrevented);
+}
+
 /* ---------------------------------------------- instagram.com, October 2026 -- */
 console.log('\ninstagram.com as of October 2026 (test/fixtures/instagram.html)');
 {
