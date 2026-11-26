@@ -901,6 +901,52 @@ const bootPopup = async ({ tabAnswers = true, stored = {} } = {}) => {
   await del('Footer links');
   ok('a delete storage refuses offers no Undo', ids() === 'p1,p3' && !shown(), ids());
 }
+/* Pause feed's number of posts, set beside its switch. */
+{
+  const { p, io, $: $p } = await bootPopup({ stored: { bfx: { sites: { facebook: { presets: { feedPause: true } } } } } });
+  p.document.querySelector('.group[data-group="Feed"] .group-main').click();
+  await frame();
+  const row = Array.from(p.document.querySelectorAll('#groups .rule')).find(r => r.querySelector('.rule-text').textContent === 'Pause feed');
+  const field = row && row.querySelector('.amount-num');
+  const [less, more] = row ? row.querySelectorAll('.amount-step') : [];
+  const fb = () => io.stored.bfx.sites.facebook;
+  const type = async (text, how) => {
+    field.value = text;
+    if (how === 'Enter') field.dispatchEvent(new p.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    else field.dispatchEvent(new p.Event('change', { bubbles: true }));
+    await frame();
+  };
+  ok('Pause feed\'s row has − and + around its number, 10 to start, and it is the only row with one',
+    !!field && field.value === '10' && field.type === 'number' && p.document.querySelectorAll('#groups .amount').length === 1,
+    field && field.value);
+  ok('…and no words: the row reads its label and nothing else', row.textContent === 'Pause feed', JSON.stringify(row.textContent));
+  more.click();
+  await frame();
+  ok('+ saves one more', fb().amounts.feedPause === 11 && field.value === '11', JSON.stringify(fb().amounts));
+  more.click(); more.click(); more.click();
+  await frame();
+  ok('three presses in a row all count', fb().amounts.feedPause === 14 && field.value === '14', JSON.stringify(fb().amounts));
+  less.click();
+  await frame();
+  ok('− saves one fewer', fb().amounts.feedPause === 13 && field.value === '13', JSON.stringify(fb().amounts));
+  ok('pressing them leaves the switch as it was', fb().presets.feedPause === true && row.querySelector('.switch input').checked);
+  await type('70');
+  ok('a number typed past 50 is saved as 50, and + stops there', fb().amounts.feedPause === 50 && field.value === '50' && more.disabled && !less.disabled,
+    fb().amounts.feedPause + ' / ' + field.value);
+  await type('2');
+  ok('one under 3 as 3, and − stops there', fb().amounts.feedPause === 3 && field.value === '3' && less.disabled && !more.disabled,
+    fb().amounts.feedPause + ' / ' + field.value);
+  await type('12.4', 'Enter');
+  ok('Enter saves what is typed, whole', fb().amounts.feedPause === 12 && field.value === '12', fb().amounts.feedPause + ' / ' + field.value);
+  await type('');
+  ok('a field emptied goes back to the number saved', fb().amounts.feedPause === 12 && field.value === '12', fb().amounts.feedPause + ' / ' + field.value);
+  io.refuse = 'QUOTA_BYTES quota exceeded';
+  more.click();
+  await frame();
+  ok('a press storage refuses shows the number stored, and says Not saved',
+    fb().amounts.feedPause === 12 && field.value === '12' && $p('tallyWord').textContent === 'Not saved', field.value + ' / ' + $p('tallyWord').textContent);
+  io.refuse = null;
+}
 
 /* A page that never stops changing (a video's progress, a live chat) was
  * scanned every frame, each scan with document-wide queries. */

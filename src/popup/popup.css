@@ -179,6 +179,51 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 }
 .rule-text { flex: 1; min-width: 0; }
 
+/* A switch's number (Pause feed's posts at a time): − and + around a field
+ * that also takes one typed. */
+.amount {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  cursor: default;
+}
+.amount-step {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--dim);
+}
+.amount-step:hover:not(:disabled) { color: var(--accent-text); }
+.amount-step:disabled { opacity: .35; cursor: default; }
+.amount-num {
+  width: 28px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  font: 650 14px/1 var(--font);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.amount-num::-webkit-inner-spin-button,
+.amount-num::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; appearance: none; }
+/* Fingers need more than the mouse. */
+@media (pointer: coarse) {
+  .amount { height: 44px; }
+  .amount-step { width: 44px; height: 42px; }
+  .amount-num { width: 32px; height: 42px; }
+}
+
 /* How much a rule hides on the open tab: only there when it hides something,
  * or when something is wrong with it. */
 .count {

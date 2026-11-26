@@ -166,7 +166,8 @@ through their features one by one, with the xrnsoc switch for each and
 what was left out. Four of those switches start off, so turn on the ones
 you used:
 
-- Facebook → Feed → **Pause feed** (Social Fixer's Post Loading Pause)
+- Facebook → Feed → **Pause feed** (Social Fixer's Post Loading Pause),
+  with the number of posts at a time, 3 to 50, beside its switch
 - Instagram → Feed → **Explore** and **Following feed**, and Menu →
   **Threads links** (Antigram's)
 

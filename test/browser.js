@@ -441,6 +441,31 @@ async function until(fn, timeout = 3000) {
     await popup.click('#groups .rule .rule-text');
     await until(async () => (await fbNow()).presets.grayscale === false);
 
+    /* Pause feed's number, beside its switch, reaching the open tab. */
+    served = fs.readFileSync(path.join(fixtures, 'facebook-pause.html'), 'utf8');
+    await setState('s => { s.sites.facebook.presets.feedPause = true; }');
+    await load();
+    await popup.click('.group[data-group="Feed"] .group-main');
+    const amount = '#groups .rule .amount';
+    ok('Pause feed\'s row has its number beside the switch, 10 to start', await until(async () =>
+      (await popup.$$eval(amount, a => a.length)) === 1 && (await popup.$eval(amount + ' input', i => i.value)) === '10'));
+    await popup.click(amount + ' [aria-label="More"]');
+    ok('+ saves one more', await until(async () => (await fbNow()).amounts.feedPause === 11) &&
+      (await popup.$eval(amount + ' input', i => i.value)) === '11');
+    await popup.$eval(amount + ' input', i => { i.focus(); i.value = ''; });
+    await popup.type(amount + ' input', '5');
+    await popup.keyboard.press('Enter');
+    ok('a number typed and Enter saves it', await until(async () => (await fbNow()).amounts.feedPause === 5));
+    ok('…leaving the switch on', (await fbNow()).presets.feedPause === true &&
+      await popup.$eval('#groups .rule:has(.amount) .switch input', i => i.checked));
+    await page.bringToFront();
+    ok('the open Facebook tab takes it with no reload: five posts, then a bar that says 5', await until(async () =>
+      await isHidden('w-8') && !(await isHidden('w-6')) && /Paused · 5 more/.test(await barOf('w-7'))), await barOf('w-7'));
+    await popup.bringToFront();
+    served = fs.readFileSync(path.join(fixtures, 'feed.html'), 'utf8');
+    await setState('s => { s.sites.facebook.presets.feedPause = false; s.sites.facebook.amounts.feedPause = 10; }');
+    await load();
+
     await popup.click('.tab[data-view="words"]');
     await popup.type('#wordInput', 'crypto');
     await popup.keyboard.press('Enter');
@@ -493,6 +518,13 @@ async function until(fn, timeout = 3000) {
     await phone.goto(`chrome-extension://${extId}/src/popup/popup.html`);
     ok('on a touch screen the popup is the whole page', await phone.evaluate(() =>
       matchMedia('(pointer: coarse)').matches && Math.round(document.body.getBoundingClientRect().width) === innerWidth));
+    await phone.tap('.group[data-group="Feed"] .group-main');
+    await phone.waitForSelector('#groups .amount', { visible: true });
+    const stepBoxes = await phone.$$eval('#groups .amount-step', list => list.map(b => {
+      const box = b.getBoundingClientRect();
+      return Math.round(box.width) + 'x' + Math.round(box.height);
+    }));
+    ok('Pause feed\'s − and + are big enough for a finger', stepBoxes.length === 2 && stepBoxes.every(s => s === '44x42'), stepBoxes.join(' '));
     await phone.tap('.tab[data-view="picked"]');
     await phone.waitForSelector('#custom .delete', { visible: true });
     await phone.tap('#custom .delete');
