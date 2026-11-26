@@ -739,6 +739,15 @@ async function until(fn, timeout = 3000) {
       !(await isHidden('me-row')) && !(await isHidden('right-footer')) && !(await isHidden('right-column')));
     await page.goto('https://www.instagram.com/reels/', { waitUntil: 'domcontentloaded' });
     ok('the Reels tab with Reels on lands on the feed', await until(() => page.evaluate(() => location.pathname === '/'), 5000));
+    ok('…as For you: Following feed is off by default', await page.evaluate(() => location.search === ''));
+    await setState(s => { s.sites.instagram.presets.followingFeed = true; });
+    await page.goto('https://www.instagram.com/', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    ok('with Following feed on, the home feed opens as Following',
+      await until(() => page.evaluate(() => location.pathname === '/' && location.search === '?variant=following'), 5000), page.url());
+    await page.goto('https://www.instagram.com/?variant=favorites', { waitUntil: 'domcontentloaded' });
+    await sleep(1500);
+    ok('…and Favorites stays Favorites', new URL(page.url()).search === '?variant=favorites', page.url());
+    await setState(s => { s.sites.instagram.presets.followingFeed = false; });
 
     /* A reel opened by link plays; the reels after it can't be reached. */
     await page.goto('https://www.instagram.com/reels/AAA/', { waitUntil: 'domcontentloaded' });

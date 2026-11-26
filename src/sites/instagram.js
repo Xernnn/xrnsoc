@@ -63,6 +63,11 @@
       label: 'Suggested accounts'
     },
     {
+      id: 'followingFeed',
+      group: 'Feed',
+      label: 'Following feed'
+    },
+    {
       id: 'videoPosts',
       group: 'Feed',
       label: 'All videos',
@@ -346,10 +351,18 @@
     },
     /* With Reels on, the Reels tab itself sends you to the feed. A single
      * reel (/reel/<id>/, /reels/<id>/) still opens; holdReel keeps it to that
-     * one. */
+     * one. With Following feed on, the feed is the one of accounts you
+     * follow: For you (?variant=home, or no variant) is sent to Following,
+     * Favorites is left as it is. */
     redirect: function (view, loc) {
-      if (!view.presets.reels) return null;
-      return /^\/reels\/?$/.test(loc.pathname) ? '/' : null;
+      var home = view.presets.followingFeed ? '/?variant=following' : '/';
+      if (view.presets.reels && /^\/reels\/?$/.test(loc.pathname)) return home;
+      if (!view.presets.followingFeed || loc.pathname !== '/') return null;
+      var query = new URLSearchParams(loc.search || '');
+      var variant = query.get('variant');
+      if (variant !== null && variant !== 'home') return null;
+      query.set('variant', 'following');
+      return '/?' + query.toString();
     },
     /* Messages are left alone: a reel or a word in a chat is yours to see. */
     skip: function (unit) {

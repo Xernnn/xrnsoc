@@ -1633,6 +1633,17 @@ console.log('\ninstagram.com as of October 2026 (test/fixtures/instagram.html)')
   const ig = path => w.BFX_ENGINE.redirectFor(S.merge(null), { hostname: 'www.instagram.com', pathname: path });
   ok('with Reels on, the Reels tab sends you to the feed', ig('/reels/') === '/' && ig('/reels') === '/');
   ok('…but a single reel, from a message or a link, still opens', ig('/reels/CCC/') === null && ig('/reel/CCC/') === null && ig('/reels/audio/123/') === null);
+  ok('the home feed opens as For you by default', ig('/') === null);
+  const following = S.merge({ sites: { instagram: { presets: { followingFeed: true } } } });
+  const igf = (pathname, search) => w.BFX_ENGINE.redirectFor(following, { hostname: 'www.instagram.com', pathname, search });
+  ok('with Following feed on, the home feed is sent to Following, from no variant or from For you',
+    igf('/', '') === '/?variant=following' && igf('/', '?variant=home') === '/?variant=following', igf('/', '') + ' ' + igf('/', '?variant=home'));
+  ok('…keeping the rest of the address', igf('/', '?hl=en') === '/?hl=en&variant=following', igf('/', '?hl=en'));
+  ok('…and leaves Following, Favorites and every other page as they are',
+    igf('/', '?variant=following') === null && igf('/', '?variant=favorites') === null && igf('/alice_example/', '') === null && igf('/p/AAA/', '') === null);
+  ok('…and the Reels tab lands straight on Following', igf('/reels/', '') === '/?variant=following');
+  ok('…but not while paused', w.BFX_ENGINE.redirectFor(S.merge({ enabled: false, sites: { instagram: { presets: { followingFeed: true } } } }),
+    { hostname: 'www.instagram.com', pathname: '/', search: '' }) === null);
   const dm = boot(html, 'https://www.instagram.com/direct/t/123/');
   dm.BFX_ENGINE.apply(dm.BFX_STORE.merge({ keywords: { enabled: true, terms: ['crypto'] } }));
   await frame();

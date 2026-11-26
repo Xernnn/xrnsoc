@@ -83,7 +83,7 @@ Nothing leaves your browser: no network requests, no analytics, no accounts.
 | Reddit | 23 | 6 | Checked on the live site, October 2026 |
 | X | 24 | 5 | Checked on the live site, October 2026 |
 | LinkedIn | 19 | 3 | Checked on the live site, October 2026 |
-| Instagram | 14 | 4 | Checked on the live site, October 2026 |
+| Instagram | 15 | 4 | Checked on the live site, October 2026 |
 | Twitch | 14 | 4 | Checked on the live site, October 2026 |
 | TikTok | 7 | 1 | Partial: mapped while signed out, no ad switch yet |
 | pixiv | 4 | 2 | Checked on the live site while signed out, computer and phone layouts, November 2026 |
@@ -315,7 +315,7 @@ all of them.
 - **Instagram:** only the home feed is mapped, so ads in Stories, Explore and
   the Reels tab aren't covered.
 - **Built against made-up pages, not yet checked on the live sites:**
-  Instagram's *Suggested accounts*. `test/live/check.js` checks it on a
+  Instagram's *Suggested accounts* and *Following feed*. `test/live/check.js` checks it on a
   signed-in browser.
 - **Reddit:** the picker can't reach inside Reddit's own components (votes,
   counts, share). Use the switches for those.
